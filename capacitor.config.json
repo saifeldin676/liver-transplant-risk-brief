@@ -1,0 +1,25 @@
+{
+  "appId": "com.meldplus.app",
+  "appName": "MELD+",
+  "webDir": "dist",
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 1500,
+      "backgroundColor": "#0B141C",
+      "showSpinner": false,
+      "androidScaleType": "CENTER_CROP"
+    },
+    "StatusBar": {
+      "style": "Dark",
+      "backgroundColor": "#0B141C"
+    }
+  },
+  "ios": {
+    "contentInset": "automatic",
+    "backgroundColor": "#0B141C"
+  },
+  "android": {
+    "backgroundColor": "#0B141C",
+    "allowMixedContent": false
+  }
+}

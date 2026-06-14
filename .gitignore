@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.DS_Store
+*.local
+*.env
+
+# Capacitor build artifacts (keep project files, ignore build outputs)
+ios/App/Pods/
+ios/.xcode.env.local
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
