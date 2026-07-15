@@ -4,10 +4,26 @@ dist/
 *.local
 *.env
 
-# Capacitor build artifacts (keep project files, ignore build outputs)
+# ── SIGNING KEYS — NEVER COMMIT ──────────────────────────────
+# Committing these lets anyone publish updates to your app.
+*.jks
+*.keystore
+keystore.properties
+android/keystore.properties
+key.properties
+*.p12
+*.mobileprovision
+*.cer
+# ─────────────────────────────────────────────────────────────
+
+# Capacitor build outputs
 ios/App/Pods/
+ios/App/build/
 ios/.xcode.env.local
 android/.gradle/
 android/app/build/
 android/build/
 android/local.properties
+android/app/release/
+android/app/*.aab
+android/app/*.apk
