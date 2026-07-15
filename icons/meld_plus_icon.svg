@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0D1B2A"/><stop offset="100%" style="stop-color:#091422"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="38%" r="55%">
+      <stop offset="0%" style="stop-color:#1A2E44"/><stop offset="100%" style="stop-color:#091422"/>
+    </radialGradient>
+
+    <!-- Organ body: dome lit from upper-left, shadowed at inferior border -->
+    <linearGradient id="organ" x1="18%" y1="0%" x2="72%" y2="100%">
+      <stop offset="0%"   style="stop-color:#C4707A"/>
+      <stop offset="26%"  style="stop-color:#A8434F"/>
+      <stop offset="58%"  style="stop-color:#8B3038"/>
+      <stop offset="84%"  style="stop-color:#68222A"/>
+      <stop offset="100%" style="stop-color:#4A171E"/>
+    </linearGradient>
+    <linearGradient id="domeHi" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#D98A92" stop-opacity="0.7"/>
+      <stop offset="100%" style="stop-color:#A8434F" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="infShadow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4A171E" stop-opacity="0"/>
+      <stop offset="100%" style="stop-color:#3A1016" stop-opacity="0.65"/>
+    </linearGradient>
+    <linearGradient id="gallb" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#4E7C4A"/><stop offset="100%" style="stop-color:#2E5230"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="110%">
+      <stop offset="0%" style="stop-color:#FFD166"/><stop offset="48%" style="stop-color:#F4A833"/><stop offset="100%" style="stop-color:#D4820A"/>
+    </linearGradient>
+    <linearGradient id="plusG" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFE8A8"/><stop offset="100%" style="stop-color:#E89818"/>
+    </linearGradient>
+
+    <filter id="sh" x="-25%" y="-25%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="18" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+    <clipPath id="round"><rect width="1024" height="1024" rx="228" ry="228"/></clipPath>
+
+    <!-- Clip to organ silhouette so shading never bleeds -->
+    <clipPath id="liverClip">
+      <path d="M -258 -22 C -264 -92, -226 -140, -162 -152 C -104 -163, -30 -156, 34 -150
+               C 96 -144, 158 -128, 206 -98 C 244 -74, 262 -42, 252 -8
+               C 243 24, 208 46, 164 60 C 112 77, 52 90, 4 99
+               C -56 111, -126 114, -182 96 C -226 82, -254 44, -258 -22 Z"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#round)">
+    <rect width="1024" height="1024" fill="url(#bg)"/>
+    <rect width="1024" height="1024" fill="url(#glow)"/>
+
+    <g filter="url(#sh)" transform="translate(512 372)">
+
+      <!-- Base organ: wedge — bulky right lobe (viewer left) tapering to left-lobe tip (viewer right) -->
+      <path d="M -258 -22 C -264 -92, -226 -140, -162 -152 C -104 -163, -30 -156, 34 -150
+               C 96 -144, 158 -128, 206 -98 C 244 -74, 262 -42, 252 -8
+               C 243 24, 208 46, 164 60 C 112 77, 52 90, 4 99
+               C -56 111, -126 114, -182 96 C -226 82, -254 44, -258 -22 Z"
+        fill="url(#organ)"/>
+
+      <g clip-path="url(#liverClip)">
+        <!-- Diaphragmatic (superior) surface highlight -->
+        <path d="M -258 -22 C -264 -92, -226 -140, -162 -152 C -104 -163, -30 -156, 34 -150
+                 C 96 -144, 158 -128, 206 -98 L 206 -40 L -258 -40 Z"
+          fill="url(#domeHi)"/>
+        <!-- Inferior border shadow — the sharp lower edge -->
+        <rect x="-280" y="20" width="580" height="110" fill="url(#infShadow)"/>
+        <!-- Right-lobe volume: soft radial mass -->
+        <ellipse cx="-140" cy="-58" rx="120" ry="72" fill="#D9909A" opacity="0.26"/>
+        <!-- Left-lobe recede: subtle darkening toward the thin tip -->
+        <ellipse cx="215" cy="-20" rx="90" ry="76" fill="#4A171E" opacity="0.32"/>
+      </g>
+
+      <!-- Falciform ligament: cleft with lit edge + dark groove -->
+      <path d="M 44 -151 C 50 -96, 51 -44, 46 6 C 42 44, 35 74, 24 98"
+        fill="none" stroke="#D98A92" stroke-width="7" stroke-linecap="round" opacity="0.45"
+        transform="translate(-6 0)"/>
+      <path d="M 44 -151 C 50 -96, 51 -44, 46 6 C 42 44, 35 74, 24 98"
+        fill="none" stroke="#3A1016" stroke-width="11" stroke-linecap="round" opacity="0.85"/>
+
+      <!-- Superior falciform notch -->
+      <path d="M 30 -152 C 38 -140, 44 -136, 52 -136 C 44 -145, 40 -149, 34 -151 Z"
+        fill="#0D1B2A" opacity="0.5"/>
+
+      <!-- Gallbladder — protrudes below the inferior border of the right lobe -->
+      <path d="M -34 96 C -34 122, -20 140, 0 143 C 20 140, 33 122, 32 96
+               C 18 102, 0 105, -16 103 C -24 102, -30 99, -34 96 Z"
+        fill="url(#gallb)"/>
+      <path d="M -34 96 C -34 122, -20 140, 0 143 C 20 140, 33 122, 32 96"
+        fill="none" stroke="#1F3A22" stroke-width="4" opacity="0.5"/>
+
+      <!-- Ligamentum teres — continues from falciform down the free edge -->
+      <path d="M 24 98 C 22 110, 20 118, 17 126"
+        fill="none" stroke="#3A1016" stroke-width="7" stroke-linecap="round" opacity="0.5"/>
+
+      <!-- Porta hepatis vessel hint -->
+      <path d="M -20 62 C -56 70, -98 74, -138 70"
+        fill="none" stroke="#5A1F26" stroke-width="8" stroke-linecap="round" opacity="0.3"/>
+
+      <!-- Crisp inferior border line — livers have a sharp lower margin -->
+      <path d="M -182 96 C -126 114, -56 111, 4 99 C 52 90, 112 77, 164 60"
+        fill="none" stroke="#3A1016" stroke-width="5" stroke-linecap="round" opacity="0.45"/>
+    </g>
+
+    <g filter="url(#sh)">
+      <rect x="742" y="146" width="66" height="196" rx="33" fill="url(#plusG)"/>
+      <rect x="677" y="211" width="196" height="66" rx="33" fill="url(#plusG)"/>
+    </g>
+
+    <text x="512" y="742" text-anchor="middle" font-family="'Helvetica Neue',Arial,sans-serif"
+      font-weight="800" font-size="150" letter-spacing="-3" fill="url(#gold)" filter="url(#sh)">MELD</text>
+    <text x="512" y="806" text-anchor="middle" font-family="'Helvetica Neue',Arial,sans-serif"
+      font-weight="500" font-size="42" letter-spacing="9" fill="#FFD166" opacity="0.5">PERIOPERATIVE</text>
+  </g>
+  <rect x="1.5" y="1.5" width="1021" height="1021" rx="226.5" fill="none" stroke="url(#gold)" stroke-width="3" opacity="0.22"/>
+</svg>
