@@ -4,22 +4,13 @@
   "webDir": "dist",
   "plugins": {
     "SplashScreen": {
-      "launchShowDuration": 1500,
-      "backgroundColor": "#0B141C",
+      "launchShowDuration": 1200,
+      "backgroundColor": "#0D1B2A",
       "showSpinner": false,
       "androidScaleType": "CENTER_CROP"
     },
-    "StatusBar": {
-      "style": "Dark",
-      "backgroundColor": "#0B141C"
-    }
+    "StatusBar": { "style": "Dark", "backgroundColor": "#0D1B2A" }
   },
-  "ios": {
-    "contentInset": "automatic",
-    "backgroundColor": "#0B141C"
-  },
-  "android": {
-    "backgroundColor": "#0B141C",
-    "allowMixedContent": false
-  }
+  "ios": { "contentInset": "automatic", "backgroundColor": "#0D1B2A" },
+  "android": { "backgroundColor": "#0D1B2A", "allowMixedContent": false }
 }
