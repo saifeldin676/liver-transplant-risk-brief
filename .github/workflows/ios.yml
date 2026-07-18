@@ -24,6 +24,11 @@ jobs:
       - name: Build web assets
         run: npm run build
 
+      - name: Generate app icons from resources/icon.png
+        run: |
+          npm install --no-save @capacitor/assets
+          npx capacitor-assets generate --ios
+
       - name: Sync iOS project
         run: npx cap sync ios
 
@@ -37,7 +42,7 @@ jobs:
         run: |
           cd ios/App
           xcodebuild \
-            -workspace App.xcworkspace \
+            -project App.xcodeproj \
             -scheme App \
             -configuration Release \
             -destination 'generic/platform=iOS' \
