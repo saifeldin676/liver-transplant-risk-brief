@@ -6,6 +6,11 @@ on:
 jobs:
   build:
     runs-on: macos-14
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+      BUILD_NUMBER: ${{ github.run_number }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,58 +37,5 @@ jobs:
       - name: Sync iOS project
         run: npx cap sync ios
 
-      - name: Write App Store Connect API key
-        run: |
-          mkdir -p ~/.appstoreconnect/private_keys
-          echo "${{ secrets.ASC_KEY_P8_BASE64 }}" | base64 -d > ~/.appstoreconnect/private_keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8
-          echo "${{ secrets.ASC_KEY_P8_BASE64 }}" | base64 -d > "$RUNNER_TEMP/AuthKey.p8"
-
-      - name: Archive
-        run: |
-          cd ios/App
-          xcodebuild \
-            -project App.xcodeproj \
-            -scheme App \
-            -configuration Release \
-            -destination 'generic/platform=iOS' \
-            -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" \
-            -authenticationKeyID ${{ secrets.ASC_KEY_ID }} \
-            -authenticationKeyIssuerID ${{ secrets.ASC_ISSUER_ID }} \
-            DEVELOPMENT_TEAM=3T4MJ4924U \
-            CODE_SIGN_STYLE=Automatic \
-            MARKETING_VERSION=1.0 \
-            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
-            archive
-
-      - name: Export IPA
-        run: |
-          cat > "$RUNNER_TEMP/ExportOptions.plist" <<'PLIST'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key><string>app-store</string>
-            <key>teamID</key><string>3T4MJ4924U</string>
-            <key>signingStyle</key><string>automatic</string>
-            <key>destination</key><string>export</string>
-          </dict>
-          </plist>
-          PLIST
-          xcodebuild -exportArchive \
-            -archivePath "$RUNNER_TEMP/App.xcarchive" \
-            -exportPath "$RUNNER_TEMP/export" \
-            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
-            -allowProvisioningUpdates \
-            -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" \
-            -authenticationKeyID ${{ secrets.ASC_KEY_ID }} \
-            -authenticationKeyIssuerID ${{ secrets.ASC_ISSUER_ID }}
-
-      - name: Upload to App Store Connect
-        run: |
-          IPA=$(find "$RUNNER_TEMP/export" -name "*.ipa" | head -1)
-          echo "Uploading $IPA"
-          xcrun altool --upload-app -f "$IPA" -t ios \
-            --apiKey ${{ secrets.ASC_KEY_ID }} \
-            --apiIssuer ${{ secrets.ASC_ISSUER_ID }}
+      - name: Build and upload with fastlane
+        run: fastlane ios beta
