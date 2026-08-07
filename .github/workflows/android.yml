@@ -23,6 +23,14 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      # Unique, always-increasing version code so Play never rejects a duplicate.
+      # 1000 + run number keeps it safely above any manually uploaded codes.
+      - name: Set unique version code
+        run: |
+          NEWCODE=$(( 1000 + ${{ github.run_number }} ))
+          sed -i -E "s/versionCode [0-9]+/versionCode ${NEWCODE}/" android/app/build.gradle
+          grep -n "versionCode\|versionName" android/app/build.gradle
+
       - name: Install dependencies
         run: npm install
 
