@@ -16,6 +16,77 @@ import {
 const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
 const num = (v) => (v === "" || v === null || isNaN(parseFloat(v)) ? null : parseFloat(v));
 
+/* ══════════════════════════════════════════════════════════
+   SOURCES & CITATIONS
+   Every score, threshold and recommendation surfaced in this
+   app traces to one of the peer-reviewed sources or public
+   allocation policies below. Each entry links to the source.
+   ══════════════════════════════════════════════════════════ */
+const PM = (q) => `https://pubmed.ncbi.nlm.nih.gov/?term=${encodeURIComponent(q)}`;
+
+const REFERENCES = [
+  { t: "Kim WR et al. MELD 3.0: the model for end-stage liver disease updated. Gastroenterology 2021;161:1887–1895",
+    u: PM("MELD 3.0 the model for end-stage liver disease updated Kim Gastroenterology 2021") },
+  { t: "Wiesner R et al. MELD and allocation of donor livers. Gastroenterology 2003;124:91–96",
+    u: PM("Wiesner MELD and allocation of donor livers Gastroenterology 2003") },
+  { t: "OPTN/UNOS Policy 9: Allocation of Livers and Liver-Intestines (official policy PDF)",
+    u: "https://optn.transplant.hrsa.gov/policies-bylaws/policies/" },
+  { t: "Karvellas CJ et al. Intraoperative CRRT during liver transplantation: pilot RCT. 2019",
+    u: PM("Karvellas intraoperative continuous renal replacement therapy liver transplantation randomized") },
+  { t: "Huang HB et al. Intraoperative CRRT in liver transplantation: meta-analysis. 2020",
+    u: PM("intraoperative continuous renal replacement therapy liver transplantation meta-analysis Huang") },
+  { t: "Townsend DR et al. Intraoperative renal support during liver transplantation. 2018",
+    u: PM("Townsend intraoperative renal support during liver transplantation") },
+  { t: "KDIGO Clinical Practice Guideline for Acute Kidney Injury. Kidney Int Suppl 2012",
+    u: "https://kdigo.org/guidelines/acute-kidney-injury/" },
+  { t: "Adelmann D, Kronish K, Ramsay MA. Anesthesia for liver transplantation. Anesthesiol Clin 2017",
+    u: PM("Adelmann Kronish Ramsay anesthesia for liver transplantation Anesthesiology Clinics 2017") },
+  { t: "Verbeek TA, Bezinover D et al. Hyponatremia and liver transplantation: narrative review. JCVA 2022",
+    u: PM("Verbeek Bezinover hyponatremia and liver transplantation narrative review") },
+  { t: "Yang SM et al. Intraoperative hyponatremia predicts 1-year mortality after LT. Sci Rep 2018",
+    u: PM("intraoperative hyponatremia one-year mortality liver transplantation Yang Scientific Reports 2018") },
+  { t: "Nayyar D et al. Management of severe hypoxemia post-LT in HPS. Am J Transplant 2015",
+    u: PM("Nayyar management of severe hypoxemia after liver transplantation hepatopulmonary syndrome") },
+  { t: "Stoker AD et al. DCD liver transplantation: normothermic machine perfusion. Anesth Analg 2025",
+    u: PM("donation after circulatory death liver transplantation normothermic machine perfusion anesthesia") },
+  { t: "Cailes B, Farouque O et al. LVOTO in liver transplantation. Transplantation 2021",
+    u: PM("left ventricular outflow tract obstruction liver transplantation Cailes Farouque") },
+  { t: "Radosevich MA et al. THAM in critically ill adults. Anesth Analg 2023",
+    u: PM("tromethamine THAM critically ill adults Radosevich") },
+  { t: "Horlocker TT et al. ASRA regional anesthesia guidelines, 4th ed. Reg Anesth Pain Med 2018",
+    u: "https://www.asra.com/guidelines-articles/guidelines" },
+  { t: "Mahmoud S. Intraoperative CRRT During Liver Transplantation. Corewell Health William Beaumont",
+    u: PM("intraoperative CRRT during liver transplantation") },
+  { t: "Tang LCY et al. Pulmonary function test parameters prior to liver transplantation predict post-transplant survival and respiratory-related death. Liver Transpl 2026",
+    u: PM("pulmonary function test parameters prior to liver transplantation predict post-transplant survival respiratory death Tang 2026") },
+  { t: "Kia L et al. The utility of pulmonary function testing in predicting outcomes following liver transplantation. Liver Transpl 2016;22:805–811",
+    u: PM("utility of pulmonary function testing predicting outcomes following liver transplantation Kia 2016") },
+  { t: "Barone M et al. Post-operative complications and mortality risk in liver transplant candidates with obesity: systematic review and meta-analysis. Aliment Pharmacol Ther 2017",
+    u: PM("post-operative complications mortality risk liver transplant candidates obesity systematic review meta-analysis Barone 2017") },
+  { t: "Moctezuma-Velázquez C et al. Obesity in the liver transplant setting. Nutrients 2019;11:2552",
+    u: PM("obesity in the liver transplant setting Moctezuma-Velazquez Nutrients 2019") },
+  { t: "Kaur N et al. Impact of morbid obesity on liver transplant candidacy and outcomes: national and regional trends. Transplantation 2020",
+    u: PM("impact of morbid obesity liver transplant candidacy outcomes national regional trends Kaur Transplantation 2020") },
+  { t: "Carey EJ et al. Six-minute walk distance predicts mortality in liver transplant candidates. Liver Transpl 2010",
+    u: PM("six-minute walk distance predicts mortality liver transplant candidates Carey 2010") },
+  { t: "Cox-Flaherty K et al. Six-minute walk distance predicts outcomes in liver transplant candidates. Liver Transpl 2023",
+    u: PM("six-minute walk distance predicts outcomes liver transplant candidates Cox-Flaherty 2023") },
+  { t: "Krist AH et al. (US Preventive Services Task Force). Screening for lung cancer: USPSTF recommendation statement. JAMA 2021;325:962–970",
+    u: PM("screening for lung cancer US Preventive Services Task Force recommendation statement JAMA 2021") },
+  { t: "Wolf AMD et al. Screening for lung cancer: 2023 guideline update from the American Cancer Society. CA Cancer J Clin 2023",
+    u: PM("screening for lung cancer 2023 guideline update American Cancer Society Wolf CA Cancer J Clin") },
+  { t: "Lai JC et al. Development of a novel frailty index to predict mortality in patients with end-stage liver disease (Liver Frailty Index). Hepatology 2017;66:564–574",
+    u: PM("development of a novel frailty index to predict mortality end-stage liver disease Lai Hepatology 2017") },
+  { t: "Wang S et al. Frailty is associated with increased risk of cirrhosis disease progression and death. Hepatology 2021",
+    u: PM("frailty associated with increased risk of cirrhosis disease progression and death Wang Hepatology 2021") },
+  { t: "Wang CW et al. The range and reproducibility of the Liver Frailty Index. Liver Transpl 2019;25:841–847",
+    u: PM("range and reproducibility of the Liver Frailty Index Wang Liver Transplantation 2019") },
+  { t: "Kim WR et al. Hyponatremia and mortality among patients on the liver-transplant waiting list (MELD-Na). N Engl J Med 2008;359:1018–1026",
+    u: PM("hyponatremia and mortality among patients on the liver transplant waiting list Kim New England Journal Medicine 2008") },
+  { t: "Pugh RNH et al. Transection of the oesophagus for bleeding oesophageal varices (Child-Pugh score). Br J Surg 1973;60:646–649",
+    u: PM("transection of the oesophagus for bleeding oesophageal varices Pugh British Journal of Surgery 1973") },
+];
+
 /* ── MELD 3.0 (OPTN standard since 2023; age ≥12) ──
    Kim WR et al. Gastroenterology 2021;161:1887–1895 */
 function meld3(bili, inr, cr, na, alb, female, dialysis) {
@@ -73,6 +144,16 @@ function childPugh(bili, alb, inr, ascites, enceph) {
   return { pts: p, cls, surv1y: { A: "100%", B: "80%", C: "45%" }[cls], mort: { A: "10%", B: "30%", C: "76–82%" }[cls] };
 }
 
+/* ── BMI classification (WHO) ── */
+function bmiClass(bmi) {
+  if (bmi < 18.5) return { label: "Underweight", c: "#FFC857" };
+  if (bmi < 25) return { label: "Normal", c: "#7CD992" };
+  if (bmi < 30) return { label: "Overweight", c: "#FFC857" };
+  if (bmi < 35) return { label: "Obesity I", c: "#FF9A5A" };
+  if (bmi < 40) return { label: "Obesity II", c: "#FF9A5A" };
+  return { label: "Obesity III", c: "#FF6B6B" };
+}
+
 const tierFor = (s) =>
   s <= 9 ? { label: "Low", c: "#7CD992", bg: "#0e1d15", br: "#2d5a3d" }
   : s <= 19 ? { label: "Moderate", c: "#FFC857", bg: "#1d1707", br: "#6b5216" }
@@ -82,7 +163,10 @@ const tierFor = (s) =>
 const CTP_C = { A: "#7CD992", B: "#FFC857", C: "#FF6B6B" };
 
 const INIT = {
-  age: "", sex: "male", weightKg: "",
+  age: "", sex: "male", weightKg: "", heightCm: "",
+  smoke: "never", cigsDay: "", smokeYears: "", quitYears: "",
+  fev1pp: "", fvcpp: "", fev1fvc: "", dlcopp: "", tlcpp: "",
+  lfi: "",
   bili: "", inr: "", creat: "", na: "", alb: "",
   dialysis: false, aki: false, preopCRRT: false,
   k: "", ph: "", hco3: "", lactate: "", cvp: "", uop: "",
@@ -168,10 +252,34 @@ const Collap = ({ title, icon: I, color, children, open: initOpen = false }) => 
   );
 };
 
+/* Collapsible formula + reference disclosure, shown under any score */
+const Formula = ({ name, body, refText, refUrl }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mt-2">
+      <button onClick={() => setOpen(!open)}
+        className="flex items-center gap-1 text-[9px] uppercase tracking-wider text-[#7CC4FF] hover:text-[#A8D8FF]">
+        <BookOpen size={10} />{open ? "Hide formula" : "Formula & reference"}
+      </button>
+      {open && (
+        <div className="mt-1.5 bg-[#0E1A24] border border-[#1a2e40] rounded-md p-2.5">
+          <div className="text-[10px] font-bold text-[#E6EEF2] mb-1">{name}</div>
+          <div className="font-mono text-[9.5px] text-[#C9D6DE] leading-relaxed whitespace-pre-wrap">{body}</div>
+          {refUrl
+            ? <a href={refUrl} target="_blank" rel="noopener noreferrer" className="text-[9px] text-[#7CC4FF] underline block mt-1.5">{refText}</a>
+            : <div className="text-[9px] text-[#56707F] mt-1.5">{refText}</div>}
+        </div>
+      )}
+    </div>
+  );
+};
+
 /* ══════════════ App ══════════════ */
 export default function App() {
   const [f, setF] = useState(INIT);
   const [tab, setTab] = useState("patient");
+  const [zoom, setZoom] = useState(1);
+  const zoomStep = (d) => setZoom((z) => clamp(Math.round((z + d) * 100) / 100, 0.9, 1.8));
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
 
   const v = useMemo(() => ({
@@ -179,6 +287,10 @@ export default function App() {
     na: num(f.na), alb: num(f.alb), k: num(f.k), ph: num(f.ph), hco3: num(f.hco3),
     lactate: num(f.lactate), cvp: num(f.cvp), uop: num(f.uop), spo2: num(f.spo2),
     plts: num(f.plts), fib: num(f.fib), tegR: num(f.tegR), tegMA: num(f.tegMA), tegLY30: num(f.tegLY30),
+    weightKg: num(f.weightKg), heightCm: num(f.heightCm),
+    cigsDay: num(f.cigsDay), smokeYears: num(f.smokeYears), quitYears: num(f.quitYears),
+    fev1pp: num(f.fev1pp), fvcpp: num(f.fvcpp), fev1fvc: num(f.fev1fvc), dlcopp: num(f.dlcopp), tlcpp: num(f.tlcpp),
+    lfi: num(f.lfi),
   }), [f]);
 
   const hasCore = v.bili !== null && v.inr !== null && v.creat !== null;
@@ -213,6 +325,179 @@ export default function App() {
 
     return { met, antic, contra };
   }, [f, v, m3]);
+
+  /* ── Body habitus + smoking → pulmonary/metabolic workup engine ──
+     BMI class (WHO); pack-years = (cig/day ÷ 20) × years smoked.
+     Triggers reference: Tang 2026, Kia 2016 (PFT/DLCO); USPSTF 2021 /
+     ACS 2023 (LDCT); Carey 2010, Cox-Flaherty 2023 (6MWD); Barone 2017,
+     Moctezuma-Velázquez 2019, Kaur 2020 (obesity). */
+  const metab = useMemo(() => {
+    const bmi = (v.weightKg !== null && v.heightCm !== null && v.heightCm > 0)
+      ? v.weightKg / Math.pow(v.heightCm / 100, 2) : null;
+    const bmiC = bmi !== null ? bmiClass(bmi) : null;
+    const packYears = (f.smoke !== "never" && v.cigsDay !== null && v.smokeYears !== null)
+      ? (v.cigsDay / 20) * v.smokeYears : null;
+
+    // Recommended tests (deduped), each with rationale + source
+    const tests = [];
+    const add = (t, d, ref) => { if (!tests.find((x) => x.t === t)) tests.push({ t, d, ref }); };
+
+    // Baseline chest imaging for every candidate
+    add("Chest radiograph (CXR)", "Baseline pre-transplant screen for effusion, infection, and parenchymal disease.", "Pre-LT standard");
+
+    // Pulmonary function testing (FEV1 + DLCO)
+    const pftReasons = [];
+    if (f.smoke === "current" || f.smoke === "former") pftReasons.push("smoking history");
+    if (packYears !== null && packYears >= 10) pftReasons.push(`${packYears.toFixed(0)} pack-years`);
+    if (f.exert) pftReasons.push("exertional dyspnea");
+    if (f.hps) pftReasons.push("HPS features");
+    if (f.poph) pftReasons.push("elevated RVSP/PoPH");
+    if (v.spo2 !== null && v.spo2 < 96) pftReasons.push(`SpO₂ ${v.spo2}%`);
+    if (bmi !== null && bmi >= 35) pftReasons.push(`BMI ${bmi.toFixed(1)}`);
+    if (pftReasons.length > 0)
+      add("Pulmonary function test — spirometry + DLCO", `Indicated: ${pftReasons.join(", ")}. Low DLCO independently predicts post-LT respiratory death; low FEV1 predicts worse survival; restrictive pattern predicts prolonged ventilation and ICU stay.`, "Tang 2026; Kia 2016");
+
+    // Low-dose CT lung cancer screening (USPSTF/ACS)
+    const ldctEligible = v.age !== null && v.age >= 50 && v.age <= 80 &&
+      packYears !== null && packYears >= 20 &&
+      (f.smoke === "current" || (f.smoke === "former" && (v.quitYears === null || v.quitYears <= 15)));
+    if (ldctEligible)
+      add("Low-dose chest CT — lung cancer screening", `Meets USPSTF/ACS criteria (age 50–80, ≥20 pack-years, current smoker or quit ≤15 y). Screen before listing given immunosuppression after transplant.`, "USPSTF 2021; ACS 2023");
+
+    // Diagnostic chest CT
+    if (f.hps)
+      add("Chest CT (contrast) + shunt quantification", "HPS features — characterize intrapulmonary shunting and exclude parenchymal disease.", "Nayyar 2015");
+    else if ((f.smoke === "current" || f.smoke === "former") && f.exert && !ldctEligible)
+      add("Chest CT", "Smoking history with exertional dyspnea and abnormal screen — evaluate parenchymal / airway disease.", "Kia 2016");
+
+    // 6-minute walk test
+    const sixReasons = [];
+    if (f.exert) sixReasons.push("exertional dyspnea");
+    if (bmi !== null && bmi >= 30) sixReasons.push("obesity");
+    if (f.poph || f.hps) sixReasons.push("pulmonary vascular disease");
+    if (packYears !== null && packYears >= 20) sixReasons.push("heavy smoking history");
+    if (sixReasons.length > 0)
+      add("Six-minute walk test (6MWT)", `Functional / frailty assessment (${sixReasons.join(", ")}). 6MWD <250 m predicts waitlist mortality; each 50 m decrease ≈ 25% higher death risk.`, "Carey 2010; Cox-Flaherty 2023");
+
+    // Actions / flags
+    const actions = [];
+    if (f.smoke === "current")
+      actions.push({ t: "Active smoker — cessation counseling", d: "Current smoking at assessment is independently associated with poorer post-LT survival (aHR ≈ 1.95). Refer to cessation; document abstinence per program policy.", ref: "Tang 2026", lvl: "high" });
+    if (bmi !== null && bmi >= 40)
+      actions.push({ t: `BMI ${bmi.toFixed(1)} — Obesity III (relative contraindication)`, d: "Class III obesity is a relative contraindication with higher post-LT mortality. Formal cardiopulmonary workup (echo, PFT, 6MWT), dietitian-led weight loss, and evaluation for bariatric surgery (sleeve gastrectomy has the best LT evidence).", ref: "Barone 2017; Kaur 2020; Moctezuma-Velázquez 2019", lvl: "high" });
+    else if (bmi !== null && bmi >= 35)
+      actions.push({ t: `BMI ${bmi.toFixed(1)} — Obesity II`, d: "Screen for OSA, formal cardiovascular risk assessment, difficult-airway and dosing planning, and respiratory optimization. Begin structured weight loss.", ref: "Moctezuma-Velázquez 2019", lvl: "med" });
+    else if (bmi !== null && bmi >= 30)
+      actions.push({ t: `BMI ${bmi.toFixed(1)} — Obesity I`, d: "BMI >30 raises post-op complications (esp. cardiopulmonary and infectious). Cardiovascular risk assessment and respiratory optimization; encourage diet/exercise without precipitating frailty.", ref: "Barone 2017", lvl: "med" });
+    else if (bmi !== null && bmi < 18.5)
+      actions.push({ t: `BMI ${bmi.toFixed(1)} — Underweight`, d: "Assess for sarcopenia and frailty; nutrition and prehabilitation referral. Malnutrition independently worsens perioperative outcomes.", ref: "Moctezuma-Velázquez 2019", lvl: "med" });
+
+    return { bmi, bmiC, packYears, tests, actions };
+  }, [f, v]);
+
+  /* ── PFT interpretation → predicted post-LT respiratory course ──
+     Pattern (ATS/ERS): obstruction FEV1/FVC <70%; restriction FVC or TLC
+     <80% predicted with non-obstructive ratio. Outcome associations:
+     restrictive disease and low DLCO/TLC predict prolonged post-LT
+     mechanical ventilation and longer ICU/hospital stay (Kia 2016);
+     low DLCO independently predicts respiratory-cause death and low FEV1
+     predicts worse overall survival (Tang 2026). Bands are qualitative
+     risk associations, not precise time predictions. */
+  const pft = useMemo(() => {
+    const { fev1pp, fvcpp, fev1fvc, dlcopp, tlcpp } = v;
+    const any = [fev1pp, fvcpp, fev1fvc, dlcopp, tlcpp].some((x) => x !== null);
+    if (!any) return null;
+
+    const obstruction = fev1fvc !== null && fev1fvc < 70;
+    const restriction = (!obstruction) && ((fvcpp !== null && fvcpp < 80) || (tlcpp !== null && tlcpp < 80));
+    let pattern = "Normal / non-specific";
+    if (obstruction && restriction) pattern = "Mixed obstructive + restrictive";
+    else if (obstruction) pattern = "Obstructive";
+    else if (restriction) pattern = "Restrictive";
+
+    const dlcoSev = dlcopp === null ? null
+      : dlcopp >= 75 ? { label: "Normal", c: "#7CD992" }
+      : dlcopp >= 60 ? { label: "Mild ↓", c: "#FFC857" }
+      : dlcopp >= 40 ? { label: "Moderate ↓", c: "#FF9A5A" }
+      : { label: "Severe ↓", c: "#FF6B6B" };
+
+    // Prolonged ventilation + ICU/hospital LOS risk
+    let ventLvl = "low";
+    if (restriction || (tlcpp !== null && tlcpp < 70) || (dlcopp !== null && dlcopp < 40) || (fvcpp !== null && fvcpp < 60))
+      ventLvl = "high";
+    else if ((fvcpp !== null && fvcpp < 80) || (dlcopp !== null && dlcopp < 60) || (tlcpp !== null && tlcpp < 80))
+      ventLvl = "med";
+
+    // Respiratory-cause mortality risk (post-LT)
+    let respLvl = "low";
+    if ((dlcopp !== null && dlcopp < 40) || f.smoke === "current") respLvl = "high";
+    else if (dlcopp !== null && dlcopp < 60) respLvl = "med";
+
+    // Overall survival signal
+    let survLvl = "low";
+    if ((fev1pp !== null && fev1pp < 60) || f.smoke === "current") survLvl = "high";
+    else if (fev1pp !== null && fev1pp < 70) survLvl = "med";
+
+    const word = (l) => l === "high" ? "Higher" : l === "med" ? "Moderate" : "Baseline";
+    return {
+      pattern, obstruction, restriction, dlcoSev,
+      vent: { lvl: ventLvl, word: word(ventLvl) },
+      resp: { lvl: respLvl, word: word(respLvl) },
+      surv: { lvl: survLvl, word: word(survLvl) },
+    };
+  }, [v, f.smoke]);
+
+  const lvlStyle = (l) => l === "high"
+    ? { c: "#FF6B6B", bg: "#1f0a0a", br: "#5a1a1a" }
+    : l === "med" ? { c: "#FFC857", bg: "#1d1707", br: "#4a3500" }
+    : { c: "#7CD992", bg: "#0e1d15", br: "#2d5a3d" };
+
+  /* ── Frailty: Liver Frailty Index category (Lai 2017; cut-offs Wang 2021) ──
+     LFI is entered from the validated tool (grip strength, 5 chair-stand
+     time, 3-position balance). Robust <3.2 · Pre-frail 3.2–4.4 · Frail ≥4.5. */
+  const frailty = useMemo(() => {
+    if (v.lfi === null) return null;
+    const s = v.lfi;
+    if (s < 3.2) return { label: "Robust", pts: 0, c: "#7CD992" };
+    if (s < 4.5) return { label: "Pre-frail", pts: 1, c: "#FFC857" };
+    return { label: "Frail", pts: 2, c: "#FF6B6B" };
+  }, [v.lfi]);
+
+  /* ── Composite Perioperative Risk (HEURISTIC — not a validated score,
+     and NOT the MELD allocation score). Transparent aggregation of MELD 3.0,
+     Child-Pugh, frailty (LFI), PFT, BMI, smoking, and cardiopulmonary flags
+     for situational awareness only. */
+  const composite = useMemo(() => {
+    const parts = [];
+    let pts = 0;
+    const push = (label, p, detail) => { if (p > 0) { pts += p; parts.push({ label, p, detail }); } };
+
+    if (m3 !== null) push(`MELD 3.0 ${m3}`, m3 >= 30 ? 3 : m3 >= 20 ? 2 : m3 >= 15 ? 1 : 0,
+      m3 >= 30 ? "≥30" : m3 >= 20 ? "20–29" : m3 >= 15 ? "15–19" : "<15");
+    if (ctp) push(`Child-Pugh ${ctp.cls}`, ctp.cls === "C" ? 2 : ctp.cls === "B" ? 1 : 0, `${ctp.pts} pts`);
+    if (frailty) push(`Frailty — ${frailty.label}`, frailty.pts, `LFI ${v.lfi}`);
+    if (pft) {
+      const hi = [pft.vent, pft.resp, pft.surv].some((x) => x.lvl === "high");
+      const me = [pft.vent, pft.resp, pft.surv].some((x) => x.lvl === "med");
+      push("Pulmonary (PFT)", hi ? 2 : me ? 1 : 0, pft.pattern);
+    }
+    if (metab.bmi !== null) push(`BMI ${metab.bmi.toFixed(1)}`, metab.bmi >= 40 ? 2 : (metab.bmi >= 35 || metab.bmi < 18.5) ? 1 : 0, metab.bmiC.label);
+    if (f.smoke === "current") push("Current smoker", 1, "");
+    const cflags = [];
+    if (f.cad) cflags.push("CAD");
+    if (f.lowEF) cflags.push("low EF");
+    if (f.lvoto) cflags.push("LVOTO");
+    if (f.poph) cflags.push("PoPH");
+    if (f.hps && v.spo2 !== null && v.spo2 < 90) cflags.push("HPS hypoxemia");
+    if (cflags.length > 0) push("Cardiopulmonary flags", Math.min(cflags.length, 2), cflags.join(", "));
+
+    if (m3 === null && !ctp && parts.length === 0) return null;
+    const tier = pts >= 9 ? { label: "Very High", c: "#FF6B6B", bg: "#1f0a0a", br: "#7a2323" }
+      : pts >= 6 ? { label: "High", c: "#FF9A5A", bg: "#1f1207", br: "#7a4318" }
+      : pts >= 3 ? { label: "Moderate", c: "#FFC857", bg: "#1d1707", br: "#6b5216" }
+      : { label: "Low", c: "#7CD992", bg: "#0e1d15", br: "#2d5a3d" };
+    return { pts, tier, parts };
+  }, [m3, ctp, frailty, pft, metab, f, v.lfi, v.spo2]);
 
   /* ── UNOS status logic ── */
   const unos = useMemo(() => {
@@ -260,17 +545,27 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#0B141C] text-[#E6EEF2]" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
-      <div className="max-w-5xl mx-auto px-3 py-4 sm:px-5 sm:py-6 pb-16">
+      <div className="max-w-5xl mx-auto px-3 py-4 sm:px-5 sm:py-6 pb-16" style={{ zoom }}>
 
         {/* Header */}
-        <header className="mb-4">
-          <div className="flex items-baseline gap-2">
-            <h1 className="text-[22px] font-extrabold tracking-tight text-[#FFD166]">MELD+</h1>
-            <span className="text-[11px] text-[#8FA3B3]">Perioperative Risk Brief</span>
+        <header className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-baseline gap-2">
+              <h1 className="text-[22px] font-extrabold tracking-tight text-[#FFD166]">MELD+</h1>
+              <span className="text-[11px] text-[#8FA3B3]">Perioperative Risk Brief</span>
+            </div>
+            <p className="text-[10px] text-[#56707F] mt-0.5">
+              Liver transplant anesthesia · clinical decision support
+            </p>
           </div>
-          <p className="text-[10px] text-[#56707F] mt-0.5">
-            Liver transplant anesthesia · clinical decision support
-          </p>
+          {/* Text-zoom control (pinch-to-zoom is also enabled) */}
+          <div className="flex items-center gap-1 flex-shrink-0 bg-[#101D29] border border-[#1F3645] rounded-full px-1 py-0.5">
+            <button onClick={() => zoomStep(-0.1)} aria-label="Decrease text size"
+              className="w-7 h-7 rounded-full text-[#C9D6DE] text-[15px] font-bold hover:bg-[#1F3645] disabled:opacity-40" disabled={zoom <= 0.9}>A−</button>
+            <span className="text-[9px] text-[#8FA3B3] w-9 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
+            <button onClick={() => zoomStep(0.1)} aria-label="Increase text size"
+              className="w-7 h-7 rounded-full text-[#E6EEF2] text-[17px] font-bold hover:bg-[#1F3645] disabled:opacity-40" disabled={zoom >= 1.8}>A+</button>
+          </div>
         </header>
 
         {/* Privacy banner */}
@@ -288,6 +583,7 @@ export default function App() {
           <TabBtn id="crrt">CRRT</TabBtn>
           <TabBtn id="unos">UNOS</TabBtn>
           <TabBtn id="plan">Plan</TabBtn>
+          <TabBtn id="sources">Sources</TabBtn>
           <TabBtn id="info">Info</TabBtn>
         </div>
 
@@ -296,12 +592,8 @@ export default function App() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
 
             <Card>
-              <Sec icon={Activity} label="Demographics & Labs" color="#4DD8C9" />
+              <Sec icon={Activity} label="Labs & Renal" color="#4DD8C9" />
               <div className="grid grid-cols-2 gap-2.5">
-                <Field label="Age (yrs)"><NIn placeholder="58" value={f.age} onChange={set("age")} /></Field>
-                <Field label="Sex (for MELD 3.0)">
-                  <Sel value={f.sex} onChange={set("sex")} options={[["male", "Male"], ["female", "Female"]]} />
-                </Field>
                 <Field label="Bilirubin (mg/dL)"><NIn placeholder="2.1" value={f.bili} onChange={set("bili")} /></Field>
                 <Field label="INR"><NIn placeholder="1.4" value={f.inr} onChange={set("inr")} /></Field>
                 <Field label="Creatinine (mg/dL)"><NIn placeholder="1.0" value={f.creat} onChange={set("creat")} /></Field>
@@ -313,6 +605,57 @@ export default function App() {
                 <Chk label="Dialysis ≥2× in past 7 days, or CVVHD ≥24 h" sub="Sets creatinine to 3.0 (MELD 3.0) / 4.0 (MELD-Na)" checked={f.dialysis} onChange={set("dialysis")} />
                 <Chk label="Active AKI" checked={f.aki} onChange={set("aki")} />
               </div>
+            </Card>
+
+            <Card>
+              <Sec icon={Activity} label="Demographics & Body Habitus" color="#C9A8FF" />
+              <div className="grid grid-cols-2 gap-2.5">
+                <Field label="Age (yrs)"><NIn placeholder="58" value={f.age} onChange={set("age")} /></Field>
+                <Field label="Sex (for MELD 3.0)">
+                  <Sel value={f.sex} onChange={set("sex")} options={[["male", "Male"], ["female", "Female"]]} />
+                </Field>
+                <Field label="Height (cm)"><NIn placeholder="175" value={f.heightCm} onChange={set("heightCm")} /></Field>
+                <Field label="Weight (kg)"><NIn placeholder="82" value={f.weightKg} onChange={set("weightKg")} /></Field>
+              </div>
+              {metab.bmi !== null && (
+                <div className="mt-2 flex items-center justify-between bg-[#0E1A24] border border-[#1a2e40] rounded-md px-2.5 py-1.5">
+                  <span className="text-[10px] uppercase tracking-wide text-[#8FA3B3]">BMI</span>
+                  <span className="font-mono text-[15px] font-bold" style={{ color: metab.bmiC.c }}>
+                    {metab.bmi.toFixed(1)} <span className="text-[10px] font-semibold">· {metab.bmiC.label}</span>
+                  </span>
+                </div>
+              )}
+              <div className="mt-2.5">
+                <Field label="Smoking status">
+                  <Sel value={f.smoke} onChange={set("smoke")} options={[["never", "Never"], ["former", "Former"], ["current", "Current"]]} />
+                </Field>
+              </div>
+              {f.smoke !== "never" && (
+                <div className="grid grid-cols-2 gap-2.5 mt-2">
+                  <Field label="Cigarettes / day"><NIn placeholder="20" value={f.cigsDay} onChange={set("cigsDay")} /></Field>
+                  <Field label="Years smoked"><NIn placeholder="25" value={f.smokeYears} onChange={set("smokeYears")} /></Field>
+                  {f.smoke === "former" && <Field label="Years since quit"><NIn placeholder="3" value={f.quitYears} onChange={set("quitYears")} /></Field>}
+                </div>
+              )}
+              {metab.packYears !== null && (
+                <div className="mt-2 flex items-center justify-between bg-[#0E1A24] border border-[#1a2e40] rounded-md px-2.5 py-1.5">
+                  <span className="text-[10px] uppercase tracking-wide text-[#8FA3B3]">Pack-years</span>
+                  <span className="font-mono text-[15px] font-bold text-[#FF9A5A]">{metab.packYears.toFixed(0)}</span>
+                </div>
+              )}
+              <Formula
+                name="Body Mass Index (WHO)"
+                body={"BMI = weight(kg) ÷ height(m)²\n<18.5 underweight · 18.5–24.9 normal · 25–29.9 overweight\n30–34.9 obesity I · 35–39.9 obesity II · ≥40 obesity III"}
+                refText="WHO classification of body-mass index"
+              />
+              {metab.packYears !== null && (
+                <Formula
+                  name="Pack-years (cumulative tobacco exposure)"
+                  body={"Pack-years = (cigarettes per day ÷ 20) × years smoked"}
+                  refText="Standard tobacco-exposure metric; USPSTF lung-cancer screening 2021"
+                  refUrl={PM("screening for lung cancer US Preventive Services Task Force recommendation statement JAMA 2021")}
+                />
+              )}
             </Card>
 
             <Card>
@@ -344,6 +687,35 @@ export default function App() {
               <Sec icon={Wind} label="Pulmonary" color="#7CC4FF" />
               <Chk label="Platypnea-orthodeoxia / spider angiomata + dyspnea" sub="Screens for HPS — bubble echo indicated" checked={f.hps} onChange={set("hps")} />
               <Chk label="Elevated RVSP / PASP on echo" sub="RHC required before listing" checked={f.poph} onChange={set("poph")} />
+            </Card>
+
+            <Card>
+              <Sec icon={Wind} label="Pulmonary Function (PFT)" color="#4DD8C9" />
+              <p className="text-[9.5px] text-[#56707F] mb-2 leading-relaxed">Enter % predicted (and FEV₁/FVC ratio). Drives the predicted post-transplant respiratory course on the Scores tab.</p>
+              <div className="grid grid-cols-2 gap-2.5">
+                <Field label="FEV₁ (% pred)"><NIn placeholder="85" value={f.fev1pp} onChange={set("fev1pp")} /></Field>
+                <Field label="FVC (% pred)"><NIn placeholder="88" value={f.fvcpp} onChange={set("fvcpp")} /></Field>
+                <Field label="FEV₁/FVC (%)"><NIn placeholder="78" value={f.fev1fvc} onChange={set("fev1fvc")} /></Field>
+                <Field label="DLCO (% pred)"><NIn placeholder="72" value={f.dlcopp} onChange={set("dlcopp")} /></Field>
+                <Field label="TLC (% pred)"><NIn placeholder="90" value={f.tlcpp} onChange={set("tlcpp")} /></Field>
+              </div>
+            </Card>
+
+            <Card>
+              <Sec icon={Activity} label="Frailty (Liver Frailty Index)" color="#C9A8FF" />
+              <div className="grid grid-cols-2 gap-2.5 items-end">
+                <Field label="LFI score"><NIn placeholder="3.8" value={f.lfi} onChange={set("lfi")} /></Field>
+                {frailty && (
+                  <div className="flex items-center justify-between bg-[#0E1A24] border border-[#1a2e40] rounded-md px-2.5 py-2">
+                    <span className="text-[10px] uppercase tracking-wide text-[#8FA3B3]">Category</span>
+                    <span className="text-[13px] font-bold" style={{ color: frailty.c }}>{frailty.label}</span>
+                  </div>
+                )}
+              </div>
+              <p className="text-[9.5px] text-[#56707F] mt-2 leading-relaxed">
+                Score from the validated Liver Frailty Index (grip strength, time for 5 chair stands, 3-position balance). Robust &lt;3.2 · Pre-frail 3.2–4.4 · Frail ≥4.5.
+                <a href="https://liverfrailtyindex.ucsf.edu" target="_blank" rel="noopener noreferrer" className="text-[#7CC4FF] underline ml-1">Open calculator</a>
+              </p>
             </Card>
 
             <Card>
@@ -390,7 +762,8 @@ export default function App() {
                   <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#4DD8C9]/15 text-[#4DD8C9] font-bold">OPTN CURRENT</span>
                 </div>
                 <div className="flex items-baseline gap-1.5">
-                  <div className="font-mono text-5xl font-black leading-none" style={{ color: t3?.c ?? "#46606E" }}>
+                  <div className="font-mono text-5xl font-black leading-none" style={{ color: t3?.c ?? "#46606E" }}
+                    title="MELD 3.0 (Kim 2021). Tap 'Formula & reference' below for the equation and source.">
                     {m3 ?? "—"}
                   </div>
                   {t3 && <span className="text-[11px] text-[#8FA3B3]">/ 40</span>}
@@ -405,7 +778,8 @@ export default function App() {
                   <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#56707F]/15 text-[#8FA3B3] font-bold">PRIOR STD</span>
                 </div>
                 <div className="flex items-baseline gap-1.5">
-                  <div className="font-mono text-5xl font-black leading-none text-[#8FA3B3]">{mNa ?? "—"}</div>
+                  <div className="font-mono text-5xl font-black leading-none text-[#8FA3B3]"
+                    title="MELD-Na (Kim 2008; OPTN Policy 9). Tap 'Formula & reference' below for the equation and source.">{mNa ?? "—"}</div>
                   {mNa !== null && <span className="text-[11px] text-[#56707F]">/ 40</span>}
                 </div>
                 {m3 !== null && mNa !== null && (
@@ -417,6 +791,21 @@ export default function App() {
                 {!hasCore && <div className="text-[10px] text-[#56707F] mt-1.5">Needs bili, INR, creat</div>}
               </div>
             </div>
+
+            <Card>
+              <Formula
+                name="MELD 3.0 (OPTN, current since 2023)"
+                body={"MELD 3.0 = 1.33·(1 if female) + 4.56·ln(bili) + 0.82·(137−Na) − 0.24·(137−Na)·ln(bili)\n  + 9.09·ln(INR) + 11.14·ln(creat) + 1.85·(3.5−alb) − 1.83·(3.5−alb)·ln(creat) + 6\nBounds: bili, INR, creat floored at 1.0; creat capped at 3.0 (3.0 if on dialysis); Na 125–137; albumin 1.5–3.5. Rounded, range 6–40."}
+                refText="Kim WR et al. Gastroenterology 2021;161:1887–1895"
+                refUrl={PM("MELD 3.0 the model for end-stage liver disease updated Kim Gastroenterology 2021")}
+              />
+              <Formula
+                name="MELD-Na (OPTN, 2016–2023)"
+                body={"MELD(i) = 3.78·ln(bili) + 11.2·ln(INR) + 9.57·ln(creat) + 6.43   (creat capped 4.0; 4.0 if dialysis)\nIf MELD(i) > 11:  MELD-Na = MELD(i) + 1.32·(137−Na) − 0.033·MELD(i)·(137−Na)\nNa 125–137. Rounded, range 6–40."}
+                refText="Kim WR et al. N Engl J Med 2008;359:1018–1026; OPTN Policy 9"
+                refUrl={PM("hyponatremia and mortality among patients on the liver transplant waiting list Kim New England Journal Medicine 2008")}
+              />
+            </Card>
 
             {/* Prognosis */}
             {m3 !== null && (
@@ -443,6 +832,24 @@ export default function App() {
                     <div className="text-[9px] text-[#56707F] mt-0.5">{ctp ? `${ctp.pts} pts · 1-yr ${ctp.surv1y}` : "needs albumin"}</div>
                   </div>
                 </div>
+                <Formula
+                  name="90-day survival (MELD 3.0 model)"
+                  body={"Survival = 0.946^(exp(0.17698·MELD3.0 − 3.56)) × 100%"}
+                  refText="Kim WR et al. Gastroenterology 2021 (MELD 3.0 survival model)"
+                  refUrl={PM("MELD 3.0 the model for end-stage liver disease updated Kim Gastroenterology 2021")}
+                />
+                <Formula
+                  name="3-month mortality bands (native MELD)"
+                  body={"MELD ≤9 → 1.9%   ·   10–19 → 6.0%   ·   20–29 → 19.6%\n30–39 → 52.6%   ·   ≥40 → 71.3%"}
+                  refText="Wiesner R et al. Gastroenterology 2003;124:91–96"
+                  refUrl={PM("Wiesner MELD and allocation of donor livers Gastroenterology 2003")}
+                />
+                <Formula
+                  name="Child-Turcotte-Pugh score"
+                  body={"1–3 points each:\n  bilirubin  <2 / 2–3 / >3 mg/dL\n  albumin    >3.5 / 2.8–3.5 / <2.8 g/dL\n  INR        <1.7 / 1.7–2.3 / >2.3\n  ascites    none / mild / moderate–refractory\n  enceph.    none / grade 1–2 / grade 3–4\nClass A = 5–6 · B = 7–9 · C = 10–15."}
+                  refText="Pugh RNH et al. Br J Surg 1973;60:646–649"
+                  refUrl={PM("transection of the oesophagus for bleeding oesophageal varices Pugh British Journal of Surgery 1973")}
+                />
                 <div className="mt-2.5 text-[10px] text-[#56707F] leading-relaxed">
                   MELD ≥15 is the accepted survival-benefit threshold for transplant. Below 15, transplant may confer net harm.
                   MELD does not capture frailty, sarcopenia, or functional decline — integrate with clinical assessment.
@@ -450,13 +857,155 @@ export default function App() {
               </Card>
             )}
 
-            {/* Red flags */}
-            <Card>
-              <Sec icon={AlertTriangle} label="Red Flags" color="#FF6B6B" />
+            {/* Composite perioperative risk — heuristic, distinct from MELD */}
+            {composite && (
+              <div className="rounded-xl border-2 border-[#3a2d52] bg-[#141024] p-3.5">
+                <div className="flex items-center gap-2 mb-2.5 pb-1.5 border-b border-[#2a2440]">
+                  <Shield size={13} style={{ color: "#C9A8FF" }} />
+                  <span className="text-[11px] font-bold tracking-wide text-[#E6EEF2] uppercase">Composite Perioperative Risk</span>
+                  <span className="text-[8px] px-1.5 py-0.5 rounded bg-[#C9A8FF]/15 text-[#C9A8FF] font-bold ml-auto">HEURISTIC</span>
+                </div>
+                <div className="rounded-xl p-3 border mb-2 flex items-center justify-between" style={{ backgroundColor: composite.tier.bg, borderColor: composite.tier.br }}>
+                  <div>
+                    <div className="text-[9px] uppercase tracking-wider text-[#8FA3B3]">Aggregate tier</div>
+                    <div className="text-xl font-extrabold" style={{ color: composite.tier.c }}>{composite.tier.label}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="font-mono text-3xl font-black leading-none" style={{ color: composite.tier.c }}>{composite.pts}</div>
+                    <div className="text-[9px] text-[#56707F]">points</div>
+                  </div>
+                </div>
+                {composite.parts.length > 0 && (
+                  <div className="space-y-1">
+                    {composite.parts.map((p, i) => (
+                      <div key={i} className="flex items-center justify-between px-2.5 py-1.5 bg-[#0E1A24] border border-[#1a2e40] rounded-md">
+                        <span className="text-[11px] text-[#C9D6DE]">{p.label}{p.detail ? <span className="text-[#56707F]"> · {p.detail}</span> : null}</span>
+                        <span className="text-[10px] font-bold text-[#8FA3B3]">+{p.p}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[9.5px] text-[#56707F] mt-2 leading-relaxed">
+                  <strong className="text-[#FFC857]">A heuristic aggregate — not a validated score, and not the MELD allocation score.</strong> It sums risk points across MELD 3.0, Child-Pugh, frailty (LFI), PFT, BMI, smoking, and cardiopulmonary flags for perioperative situational awareness only. Component evidence: Kim 2021 (MELD 3.0), Lai 2017 (LFI), Kia 2016 · Tang 2026 (PFT), Barone 2017 (obesity). MELD 3.0 remains the score used for listing and allocation.
+                </p>
+                <Formula
+                  name="Composite point scheme (heuristic)"
+                  body={"MELD 3.0:  ≥30 → 3 · 20–29 → 2 · 15–19 → 1\nChild-Pugh:  C → 2 · B → 1\nFrailty (LFI):  Frail → 2 · Pre-frail → 1\nPFT:  any Higher band → 2 · any Moderate → 1\nBMI:  ≥40 → 2 · 35–39.9 or <18.5 → 1\nCurrent smoker → 1\nCardiopulmonary flags (CAD, low EF, LVOTO, PoPH, HPS hypoxemia) → +1 each, max 2\n\nTier:  0–2 Low · 3–5 Moderate · 6–8 High · ≥9 Very High"}
+                  refText="Non-validated aggregation for situational awareness. Components: Kim 2021, Lai 2017, Kia 2016 / Tang 2026, Barone 2017."
+                />
+              </div>
+            )}
+
+            {/* Red flags — enlarged for prominence */}
+            <div className="rounded-xl border-2 border-[#5a1a1a] bg-[#160a0a] p-4">
+              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-[#3a1414]">
+                <AlertTriangle size={18} className="text-[#FF6B6B]" />
+                <span className="text-[14px] font-extrabold tracking-wide text-[#FFD7D7] uppercase">Red Flags</span>
+                {flags.length > 0 && (
+                  <span className="ml-auto text-[12px] font-bold text-[#FF6B6B] bg-[#FF6B6B]/15 rounded-full px-2.5 py-0.5">{flags.length}</span>
+                )}
+              </div>
               {flags.length === 0
-                ? <p className="text-[11px] text-[#56707F]">None from current inputs.</p>
-                : <div className="space-y-1.5">{flags.map((r, i) => <Flag key={i} text={r.t} level={r.l} />)}</div>}
+                ? <p className="text-[12px] text-[#8a9aa5]">None from current inputs.</p>
+                : <div className="space-y-2">
+                    {flags.map((r, i) => {
+                      const st = r.l === "high" ? { c: "#FF6B6B", bg: "#1f0a0a", br: "#7a2323" }
+                        : r.l === "med" ? { c: "#FFC857", bg: "#1d1707", br: "#6b5216" }
+                        : { c: "#7CC4FF", bg: "#0d1a24", br: "#1e3a52" };
+                      return (
+                        <div key={i} className="flex items-start gap-2.5 rounded-lg border p-3" style={{ backgroundColor: st.bg, borderColor: st.br }}>
+                          <AlertTriangle size={16} style={{ color: st.c }} className="flex-shrink-0 mt-0.5" />
+                          <span className="text-[13px] leading-relaxed text-[#F0E4E4]">{r.t}</span>
+                        </div>
+                      );
+                    })}
+                  </div>}
+            </div>
+
+            {/* Pulmonary & metabolic workup */}
+            <Card>
+              <Sec icon={Wind} label="Pulmonary & Metabolic Workup" color="#7CC4FF" />
+              {metab.actions.length > 0 && (
+                <div className="space-y-2 mb-2.5">
+                  {metab.actions.map((a, i) => (
+                    <div key={i} className={`rounded-lg px-3 py-2 border ${a.lvl === "high" ? "bg-[#1f0a0a] border-[#5a1a1a]" : "bg-[#1d1707] border-[#4a3500]"}`}>
+                      <div className={`text-[12px] font-bold ${a.lvl === "high" ? "text-[#FFD7D7]" : "text-[#FFE4A0]"}`}>{a.t}</div>
+                      <div className="text-[10.5px] text-[#8FA3B3] mt-1 leading-relaxed">{a.d}</div>
+                      <div className="text-[9px] text-[#56707F] mt-1">{a.ref}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="text-[10px] font-bold text-[#E6EEF2] uppercase tracking-wide mb-1.5">Recommended tests</div>
+              <div className="space-y-1.5">
+                {metab.tests.map((t, i) => (
+                  <div key={i} className="bg-[#0E1A24] border border-[#1a2e40] rounded-md px-2.5 py-2">
+                    <div className="text-[11.5px] font-semibold text-[#C8DEFF]">{t.t}</div>
+                    <div className="text-[10px] text-[#8FA3B3] mt-0.5 leading-relaxed">{t.d}</div>
+                    <div className="text-[9px] text-[#56707F] mt-1">{t.ref}</div>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[9.5px] text-[#56707F] mt-2 leading-relaxed">
+                Enter height, weight, and smoking history on the Patient tab to drive these recommendations. Blank fields are not evaluated.
+              </p>
             </Card>
+
+            {/* Predicted post-transplant respiratory course (PFT + smoking) */}
+            {(pft || f.smoke !== "never") && (
+              <Card>
+                <Sec icon={Activity} label="Predicted Post-Transplant Respiratory Course" color="#FF9A5A" />
+                {pft && (
+                  <>
+                    <div className="flex gap-2 mb-2.5">
+                      <div className="flex-1 bg-[#0E1A24] border border-[#1a2e40] rounded-lg p-2.5">
+                        <div className="text-[9px] text-[#8FA3B3] uppercase tracking-wide">PFT pattern</div>
+                        <div className="text-[13px] font-bold mt-0.5 text-[#E6EEF2]">{pft.pattern}</div>
+                      </div>
+                      {pft.dlcoSev && (
+                        <div className="flex-1 bg-[#0E1A24] border border-[#1a2e40] rounded-lg p-2.5">
+                          <div className="text-[9px] text-[#8FA3B3] uppercase tracking-wide">DLCO</div>
+                          <div className="text-[13px] font-bold mt-0.5" style={{ color: pft.dlcoSev.c }}>{pft.dlcoSev.label}</div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-1.5">
+                      {[
+                        ["Prolonged mechanical ventilation & ICU stay", pft.vent, "Restrictive pattern and low DLCO/TLC predict longer post-LT ventilation and ICU/hospital length of stay."],
+                        ["Respiratory-cause mortality (post-LT)", pft.resp, "Low DLCO independently predicts respiratory cause of death after transplant."],
+                        ["Overall post-transplant survival", pft.surv, "Low FEV₁ and current smoking are associated with poorer overall survival."],
+                      ].map(([label, band, why]) => {
+                        const s = lvlStyle(band.lvl);
+                        return (
+                          <div key={label} className="rounded-lg px-3 py-2 border" style={{ backgroundColor: s.bg, borderColor: s.br }}>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[11.5px] font-semibold text-[#E6EEF2]">{label}</span>
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded flex-shrink-0" style={{ color: s.c, backgroundColor: s.c + "1A" }}>{band.word} risk</span>
+                            </div>
+                            <div className="text-[9.5px] text-[#8FA3B3] mt-1 leading-relaxed">{why}</div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="text-[9px] text-[#56707F] mt-2 leading-relaxed">Kia 2016; Tang 2026. Qualitative risk associations from pre-LT PFTs — not a precise time prediction.</div>
+                  </>
+                )}
+                {f.smoke !== "never" && (
+                  <div className="mt-2.5 rounded-lg px-3 py-2 border" style={f.smoke === "current" ? { backgroundColor: "#1f0a0a", borderColor: "#5a1a1a" } : { backgroundColor: "#1d1707", borderColor: "#4a3500" }}>
+                    <div className={`text-[11.5px] font-bold ${f.smoke === "current" ? "text-[#FFD7D7]" : "text-[#FFE4A0]"}`}>
+                      {f.smoke === "current" ? "Current smoker — worse projected survival" : "Former smoker"}
+                      {metab.packYears !== null ? ` · ${metab.packYears.toFixed(0)} pack-years` : ""}
+                    </div>
+                    <div className="text-[9.5px] text-[#8FA3B3] mt-1 leading-relaxed">
+                      {f.smoke === "current"
+                        ? "Current smoking at assessment is independently associated with ~2× hazard of poorer post-LT survival. Cessation before transplant is advised."
+                        : "Residual pulmonary and malignancy risk persists; ensure PFT and lung-cancer screening are addressed in the workup above."}
+                    </div>
+                    <div className="text-[9px] text-[#56707F] mt-1">Tang 2026</div>
+                  </div>
+                )}
+              </Card>
+            )}
 
             {/* Workup */}
             <div className="grid sm:grid-cols-2 gap-3">
@@ -869,28 +1418,77 @@ export default function App() {
               </ul>
             </Collap>
 
-            <Collap title="Evidence Base" icon={BookOpen} color="#8FA3B3">
-              <ul className="space-y-1">
-                {[
-                  "Kim WR et al. MELD 3.0: the model for end-stage liver disease updated. Gastroenterology 2021;161:1887–1895",
-                  "Wiesner R et al. MELD and allocation of donor livers. Gastroenterology 2003;124:91–96",
-                  "OPTN/UNOS Policy 9: Allocation of Livers and Liver-Intestines — optn.transplant.hrsa.gov",
-                  "Karvellas CJ et al. Intraoperative CRRT during liver transplantation: pilot RCT. 2019",
-                  "Huang HB et al. Intraoperative CRRT in liver transplantation: meta-analysis. 2020",
-                  "Townsend DR et al. Intraoperative renal support during liver transplantation. 2018",
-                  "KDIGO Clinical Practice Guideline for Acute Kidney Injury. Kidney Int Suppl 2012",
-                  "Adelmann D, Kronish K, Ramsay MA. Anesthesia for liver transplantation. Anesthesiol Clin 2017",
-                  "Verbeek TA, Bezinover D et al. Hyponatremia and liver transplantation: narrative review. JCVA 2022",
-                  "Yang SM et al. Intraoperative hyponatremia predicts 1-year mortality after LT. Sci Rep 2018",
-                  "Nayyar D et al. Management of severe hypoxemia post-LT in HPS. Am J Transplant 2015",
-                  "Stoker AD et al. DCD liver transplantation: impact of normothermic machine perfusion. Anesth Analg 2025",
-                  "Cailes B, Farouque O et al. LVOTO in liver transplantation. Transplantation 2021",
-                  "Radosevich MA et al. THAM in critically ill adults. Anesth Analg 2023",
-                  "Horlocker TT et al. ASRA regional anesthesia guidelines, 4th ed. Reg Anesth Pain Med 2018",
-                  "Mahmoud S. Intraoperative CRRT During Liver Transplantation. Corewell Health William Beaumont",
-                ].map((r) => <li key={r} className="text-[10px] text-[#56707F] leading-relaxed">{r}</li>)}
+            <Collap title="Evidence Base — Sources & Citations" icon={BookOpen} color="#8FA3B3" open>
+              <p className="text-[10px] text-[#8FA3B3] mb-2 leading-relaxed">
+                Every score, threshold, and recommendation in MELD+ is drawn from the peer-reviewed
+                literature and public allocation policy listed below. Tap any citation to open the
+                original source.
+              </p>
+              <ul className="space-y-1.5">
+                {REFERENCES.map((r) => (
+                  <li key={r.t}>
+                    <a
+                      href={r.u}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-[#7CC4FF] underline decoration-[#25506f] leading-relaxed block hover:text-[#A8D8FF]"
+                    >
+                      {r.t}
+                    </a>
+                  </li>
+                ))}
               </ul>
+              <p className="text-[9px] text-[#56707F] mt-3 leading-relaxed">
+                MELD+ is a reference tool for licensed clinicians. It is not a regulated medical
+                device and does not diagnose or treat. Always seek a physician's advice in addition
+                to using this app and before making any medical decision.
+              </p>
             </Collap>
+          </div>
+        )}
+
+        {/* ═══════════ SOURCES ═══════════ */}
+        {tab === "sources" && (
+          <div className="space-y-3">
+            <Card>
+              <Sec icon={BookOpen} label="Sources & Citations" color="#7CC4FF" />
+              <p className="text-[11.5px] text-[#C9D6DE] leading-relaxed mb-1">
+                Every score, threshold, and recommendation in MELD+ is drawn from the peer-reviewed
+                literature and published OPTN/UNOS allocation policy listed below. Tap any citation to
+                open the original source in your browser.
+              </p>
+            </Card>
+
+            <Card>
+              <Sec icon={ListChecks} label="Primary References" color="#4DD8C9" />
+              <ul className="space-y-2">
+                {REFERENCES.map((r, i) => (
+                  <li key={r.t} className="flex gap-2">
+                    <span className="text-[10px] font-mono text-[#56707F] flex-shrink-0 pt-0.5 w-5 text-right">{i + 1}.</span>
+                    <a
+                      href={r.u}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-[#7CC4FF] underline decoration-[#25506f] leading-relaxed block hover:text-[#A8D8FF]"
+                    >
+                      {r.t}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+
+            <Card>
+              <Sec icon={AlertTriangle} label="Intended Use & Disclaimer" color="#FF6B6B" />
+              <p className="text-[11px] text-[#C9D6DE] leading-relaxed">
+                MELD+ is an educational and clinical reference tool for qualified, licensed healthcare
+                professionals. It is not a medical device and does not diagnose, treat, prescribe, or
+                replace clinical judgment. All outputs are reference material to inform — never replace —
+                a clinician's decision. Always seek a physician's advice in addition to using this app and
+                before making any medical decision. Verify all allocation and listing questions against
+                current policy at optn.transplant.hrsa.gov.
+              </p>
+            </Card>
           </div>
         )}
 
@@ -1048,6 +1646,36 @@ export default function App() {
                     appear in the formula. A patient with a modest MELD can be far sicker than the number suggests, which
                     is the entire reason the exception pathways exist. MELD is a structured risk estimate inside a
                     broader clinical assessment, not a replacement for one.
+                  </p>
+                </Collap>
+
+                <Collap title="What is the Liver Frailty Index (LFI)?" icon={Activity} color="#C9A8FF">
+                  <p className="text-[11px] text-[#C9D6DE] leading-relaxed mb-2">
+                    The Liver Frailty Index is a performance-based measure of physical frailty developed specifically for
+                    cirrhosis. It combines three bedside tests: dominant-hand <strong>grip strength</strong> (dynamometer,
+                    average of 3), <strong>chair stands</strong> (time to rise from a chair 5 times, arms folded), and
+                    <strong> balance</strong> (seconds held in side-by-side, semi-tandem, and tandem stances). It captures
+                    functional decline that MELD misses and improves prediction of waitlist mortality over MELD-Na alone.
+                  </p>
+                  <ul className="space-y-1">
+                    <Bul><strong className="text-[#7CD992]">Robust</strong> — LFI &lt;3.2</Bul>
+                    <Bul><strong className="text-[#FFC857]">Pre-frail</strong> — LFI 3.2–4.4</Bul>
+                    <Bul><strong className="text-[#FF6B6B]">Frail</strong> — LFI ≥4.5; independently associated with cirrhosis progression, unplanned hospitalization, and death</Bul>
+                  </ul>
+                  <p className="text-[10px] text-[#56707F] leading-relaxed mt-2">
+                    Enter the score from the validated tool on the Patient tab. Lai et al., Hepatology 2017; Wang et al., Hepatology 2021.
+                  </p>
+                </Collap>
+
+                <Collap title="What is the Composite Perioperative Risk, and is it validated?" icon={Shield} color="#C9A8FF">
+                  <p className="text-[11px] text-[#C9D6DE] leading-relaxed mb-2">
+                    It is a <strong>heuristic</strong> that adds up risk points across several validated domains — MELD 3.0,
+                    Child-Pugh, the Liver Frailty Index, pulmonary function, BMI/obesity, smoking, and major cardiopulmonary
+                    flags — into a single Low / Moderate / High / Very High tier for quick situational awareness before surgery.
+                  </p>
+                  <Flag level="med" text="It is NOT a validated score and NOT the MELD allocation score. MELD 3.0 remains the number used for listing and organ allocation. The composite simply flags patients who carry risk across multiple domains — always integrate with full clinical assessment." />
+                  <p className="text-[10px] text-[#56707F] leading-relaxed mt-2">
+                    Each component links to its own source under Plan → Evidence Base and the Sources tab.
                   </p>
                 </Collap>
 
