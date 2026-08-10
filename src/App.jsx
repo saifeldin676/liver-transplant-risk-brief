@@ -176,6 +176,7 @@ const INIT = {
   plts: "", fib: "", tegR: "", tegMA: "", tegLY30: "",
   opioid: false, dcd: false,
   hcc: false, alf: false,
+  priorTIPS: "none", pvtGrade: "none",
 };
 
 /* ══════════════ UI primitives ══════════════ */
@@ -557,6 +558,10 @@ export default function App() {
             <p className="text-[10px] text-[#56707F] mt-0.5">
               Liver transplant anesthesia · clinical decision support
             </p>
+            <div className="mt-1.5 inline-flex flex-col bg-[#12101D] border border-[#3a2f57] rounded-md px-2 py-1">
+              <span className="text-[10.5px] font-semibold text-[#C9A8FF] leading-tight">Saifeldin A. Mahmoud, MD, PhD</span>
+              <span className="text-[8.5px] text-[#8FA3B3] leading-tight">Director, Liver Transplant Anesthesia</span>
+            </div>
           </div>
           {/* Text-zoom control (pinch-to-zoom is also enabled) */}
           <div className="flex items-center gap-1 flex-shrink-0 bg-[#101D29] border border-[#1F3645] rounded-full px-1 py-0.5">
@@ -590,22 +595,6 @@ export default function App() {
         {/* ═══════════ PATIENT ═══════════ */}
         {tab === "patient" && (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-
-            <Card>
-              <Sec icon={Activity} label="Labs & Renal" color="#4DD8C9" />
-              <div className="grid grid-cols-2 gap-2.5">
-                <Field label="Bilirubin (mg/dL)"><NIn placeholder="2.1" value={f.bili} onChange={set("bili")} /></Field>
-                <Field label="INR"><NIn placeholder="1.4" value={f.inr} onChange={set("inr")} /></Field>
-                <Field label="Creatinine (mg/dL)"><NIn placeholder="1.0" value={f.creat} onChange={set("creat")} /></Field>
-                <Field label="Sodium (mmol/L)"><NIn placeholder="136" value={f.na} onChange={set("na")} /></Field>
-                <Field label="Albumin (g/dL)"><NIn placeholder="3.2" value={f.alb} onChange={set("alb")} /></Field>
-                <Field label="SpO₂ room air (%)"><NIn placeholder="97" value={f.spo2} onChange={set("spo2")} /></Field>
-              </div>
-              <div className="mt-2">
-                <Chk label="Dialysis ≥2× in past 7 days, or CVVHD ≥24 h" sub="Sets creatinine to 3.0 (MELD 3.0) / 4.0 (MELD-Na)" checked={f.dialysis} onChange={set("dialysis")} />
-                <Chk label="Active AKI" checked={f.aki} onChange={set("aki")} />
-              </div>
-            </Card>
 
             <Card>
               <Sec icon={Activity} label="Demographics & Body Habitus" color="#C9A8FF" />
@@ -656,6 +645,22 @@ export default function App() {
                   refUrl={PM("screening for lung cancer US Preventive Services Task Force recommendation statement JAMA 2021")}
                 />
               )}
+            </Card>
+
+            <Card>
+              <Sec icon={Activity} label="Labs & Renal" color="#4DD8C9" />
+              <div className="grid grid-cols-2 gap-2.5">
+                <Field label="Bilirubin (mg/dL)"><NIn placeholder="2.1" value={f.bili} onChange={set("bili")} /></Field>
+                <Field label="INR"><NIn placeholder="1.4" value={f.inr} onChange={set("inr")} /></Field>
+                <Field label="Creatinine (mg/dL)"><NIn placeholder="1.0" value={f.creat} onChange={set("creat")} /></Field>
+                <Field label="Sodium (mmol/L)"><NIn placeholder="136" value={f.na} onChange={set("na")} /></Field>
+                <Field label="Albumin (g/dL)"><NIn placeholder="3.2" value={f.alb} onChange={set("alb")} /></Field>
+                <Field label="SpO₂ room air (%)"><NIn placeholder="97" value={f.spo2} onChange={set("spo2")} /></Field>
+              </div>
+              <div className="mt-2">
+                <Chk label="Dialysis ≥2× in past 7 days, or CVVHD ≥24 h" sub="Sets creatinine to 3.0 (MELD 3.0) / 4.0 (MELD-Na)" checked={f.dialysis} onChange={set("dialysis")} />
+                <Chk label="Active AKI" checked={f.aki} onChange={set("aki")} />
+              </div>
             </Card>
 
             <Card>
@@ -747,6 +752,46 @@ export default function App() {
               <Chk label="DCD allograft" sub="Higher post-reperfusion syndrome risk" checked={f.dcd} onChange={set("dcd")} />
               <Chk label="Chronic opioid use / tolerance" checked={f.opioid} onChange={set("opioid")} />
             </Card>
+
+            <div className="sm:col-span-2 lg:col-span-3">
+              <Collap title="Portal HTN — TIPS & PVT" icon={Droplet} color="#FF6B6B">
+                <div className="grid grid-cols-2 gap-2.5 mt-1">
+                  <Field label="Prior TIPS">
+                    <Sel value={f.priorTIPS} onChange={set("priorTIPS")} options={[["none", "None"], ["patent", "Patent / functioning"], ["stenotic", "Stenotic / dysfunctional"], ["malpos", "Malpositioned"], ["occluded", "Occluded / thrombosed"]]} />
+                  </Field>
+                  <Field label="PVT grade (Yerdel)">
+                    <Sel value={f.pvtGrade} onChange={set("pvtGrade")} options={[["none", "None"], ["1", "I (<50% PV)"], ["2", "II (>50% / total PV)"], ["3", "III (PV + prox SMV)"], ["4", "IV (PV + entire SMV)"]]} />
+                  </Field>
+                </div>
+                {f.priorTIPS === "none" && f.pvtGrade === "none" && (
+                  <div className="mt-2 text-[10px] text-[#56707F] italic">No TIPS and no PVT — no additional details shown.</div>
+                )}
+                {f.pvtGrade !== "none" && (
+                  <div className="mt-2">
+                    <Flag level={(f.pvtGrade === "3" || f.pvtGrade === "4") ? "high" : "med"}
+                      text={(f.pvtGrade === "3" || f.pvtGrade === "4")
+                        ? "Grade III–IV PVT independently predicts adverse post-transplant outcomes — 1-yr survival ~89% (grade 0/1) → ~67% (grade 3/4). Higher grade tracks with more biliary complications and may require non-anatomic inflow (reno-portal / cavoportal), which carries higher morbidity. Absence of other risk factors improves outcomes even in severe PVT."
+                        : "Grade I–II PVT: transplant generally feasible via thrombectomy or end-to-end anastomosis; outcomes approach non-PVT patients when no other risk factors. Anticoagulation aids recanalization and lowers all-cause mortality (bleeding risk). Vitamin-K antagonists raise INR and artificially inflate MELD."} />
+                  </div>
+                )}
+                {f.priorTIPS !== "none" && (
+                  <div className="mt-2">
+                    <Flag level={f.priorTIPS === "patent" ? "info" : "high"}
+                      text={f.priorTIPS === "patent"
+                        ? "Patent pre-LT TIPS: no significant difference in graft or patient survival vs no TIPS (may lengthen waitlist time). Confirm stent position on cross-sectional imaging before transplant."
+                        : "Dysfunctional / malpositioned / occluded TIPS: cranial migration into the IVC or right atrium, or caudal extension into the SMV / portal confluence, can complicate the caval or portal anastomosis — flag for surgical planning."} />
+                  </div>
+                )}
+                {(f.priorTIPS !== "none" || f.pvtGrade !== "none") && (
+                  <Formula
+                    name="TIPS & portal vein thrombosis in liver transplant"
+                    body={"• Patent pre-LT TIPS: no significant survival difference vs no TIPS; longer waitlist (Sellers 2018).\n• PVT grade 3–4 & need for surgical PVT correction independently predict adverse outcomes; 1-yr OS 89%→67% (Di Benedetto 2024).\n• Anticoagulation reduces all-cause mortality & aids recanalization in cirrhosis + PVT (Guerrero 2023, IMPORTAL).\n• VKA inflates INR/MELD; non-anatomic inflow ↑ morbidity/mortality (Francoz 2012). Grading per Yerdel 2000."}
+                    refText="Sellers 2018; Di Benedetto 2024; Guerrero 2023; Francoz 2012 — tap for PubMed"
+                    refUrl={PM("portal vein thrombosis and liver transplantation management matching and outcomes Di Benedetto International Journal of Surgery 2024")}
+                  />
+                )}
+              </Collap>
+            </div>
           </div>
         )}
 
@@ -1528,8 +1573,7 @@ export default function App() {
               <Sec icon={BookOpen} label="Developer" color="#C9A8FF" />
               <div className="text-[13px] font-bold text-[#E6EEF2]">Saifeldin Ahmed Mahmoud, MD, PhD</div>
               <div className="text-[11px] text-[#8FA3B3] mt-1.5 leading-relaxed">
-                Triple board-certified in Adult Cardiac, Pediatric, and General Anesthesiology, with advanced PTEeXAM
-                certification.
+                ABA board-certified Adult Cardiac, Pediatric anesthesiologist.
               </div>
               <div className="mt-2.5 space-y-1.5">
                 {[
