@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Activity, AlertTriangle, Heart, Wind, Droplet, Pill, Zap,
   ChevronDown, BookOpen, Shield, ListChecks, Waves, Info, RotateCcw,
   Share2, Copy, X, Users
 } from "lucide-react";
+import { buildBriefPdf, deliverPdf } from "./pdf.js";
 
 /* ══════════════════════════════════════════════════════════
    MELD+ · Perioperative Risk Brief
@@ -346,6 +347,22 @@ export default function App() {
   const [zoom, setZoom] = useState(1);
   const [showShare, setShowShare] = useState(false);
   const [copied, setCopied] = useState(null);
+  const [pdf, setPdf] = useState(null);
+  const closeShare = () => { setShowShare(false); setCopied(null); setPdf(null); };
+
+  /* While the panel is open: Escape closes it, and the page behind it stops
+     scrolling so the phone does not appear frozen under the overlay. */
+  useEffect(() => {
+    if (!showShare) return;
+    const onKey = (e) => { if (e.key === "Escape") closeShare(); };
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [showShare]);
   const zoomStep = (d) => setZoom((z) => clamp(Math.round((z + d) * 100) / 100, 0.9, 1.8));
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
   const caseLabel = (i) => `Case ${String.fromCharCode(65 + i)}`;
@@ -892,6 +909,94 @@ export default function App() {
     a.click(); URL.revokeObjectURL(url);
   };
 
+  /* ── PDF one-pager ──
+     window.print() does nothing inside the WKWebView that wraps the app on
+     iOS, so the printable sheet is drawn straight into a PDF and handed to
+     the platform share sheet, where Print and Save to Files actually live. */
+  const pdfData = () => ({
+    caseLabel: caseLabel(active),
+    stamp: new Date().toLocaleString(),
+    implausibleCount: implausible.length,
+    scores: [
+      ["MELD 3.0", m3 ?? "—", m3 !== null ? `${t3.label} risk` : "incomplete"],
+      ["MELD-Na", mNa ?? "—", m3 !== null && mNa !== null ? `diff ${m3 - mNa > 0 ? "+" : ""}${m3 - mNa}` : ""],
+      ["Child-Pugh", ctp?.cls ?? "—", ctp ? `${ctp.pts} pts · 1-yr ${ctp.surv1y}` : ""],
+      ["90-day surv.", m3 !== null ? `${survival90(m3).toFixed(0)}%` : "—", m3 !== null ? `3-mo mort. ${mortality3mo(m3)}` : ""],
+      ["Composite", composite ? composite.pts : "—", composite ? `${composite.tier.label} · heuristic` : ""],
+    ],
+    inputs: [
+      v.age !== null ? `${v.age} y` : null, f.sex === "female" ? "F" : "M",
+      metab.bmi !== null ? `BMI ${metab.bmi.toFixed(1)}` : null,
+      f.smoke !== "never" ? `${f.smoke} smoker${metab.packYears !== null ? ` ${metab.packYears.toFixed(0)} py` : ""}` : null,
+      v.bili !== null ? `bili ${v.bili}` : null, v.inr !== null ? `INR ${v.inr}` : null,
+      v.creat !== null ? `creat ${v.creat}` : null, v.na !== null ? `Na ${v.na}` : null,
+      v.alb !== null ? `alb ${v.alb}` : null, v.hgb !== null ? `Hgb ${v.hgb}` : null,
+      v.plts !== null ? `plt ${v.plts}k` : null, v.fib !== null ? `fib ${v.fib}` : null,
+      v.ef !== null ? `EF ${v.ef}%` : null, v.rvsp !== null ? `RVSP ${v.rvsp}` : null,
+      v.rhcMPAP !== null ? `mPAP ${v.rhcMPAP}` : null, v.rhcPVR !== null ? `PVR ${v.rhcPVR} WU` : null,
+      frailty ? `LFI ${v.lfi} (${frailty.label})` : null,
+    ].filter(Boolean).join("  ·  "),
+    flags: flags.map((r) => ({ l: r.l, t: r.t })),
+    crrt: {
+      verdict: crrt.met.length > 0
+        ? `INDICATED — ${crrt.met.length} criteri${crrt.met.length === 1 ? "on" : "a"} met`
+        : crrt.antic.length > 0 ? "ANTICIPATE — prime the circuit" : "No criteria met",
+      met: crrt.met.map((c) => `☐ ${c.t}`),
+      antic: crrt.antic.length > 0 ? crrt.antic.join(" · ") : null,
+      notify: crrt.met.length > 0 ? "☐ Nephrology + perfusion notified · warm all CRRT fluids" : null,
+    },
+    na: naProt ? {
+      head: `Sodium protocol · Na+ ${v.na} (${naProt.tier.label})`,
+      lines: [
+        "Intraoperative ceiling ≤6 mmol/L per 24 h (preop 4–8/day, 4–6 if ODS risk; postop 4–6/day)",
+        ...(naProt.odsRisk.length > 0 ? [`ODS risk: ${naProt.odsRisk.join(" · ")}`] : []),
+        "☐ Na+ q1–2 h and after large transfusions",
+        "☐ Low-sodium CRRT (119–126 mmol/L), not standard 140",
+        "☐ Hypotonic carriers · limit Na-rich products (FFP ~172) · factor concentrates",
+        "☐ THAM not bicarbonate · DDAVP + free water if Na+ climbs too fast",
+      ],
+    } : null,
+    ph: ph?.active ? {
+      head: `Pulmonary hypertension${ph.sev ? ` · ${ph.sev.label}` : ""}`,
+      lines: [
+        ...(ph.pattern ? [ph.pattern] : []),
+        ...(ph.candidacy ? [ph.candidacy.text] : []),
+        "☐ PA catheter + TEE",
+        "☐ Inhaled NO 20–40 ppm or inhaled epoprostenol checked and in the room",
+        "☐ IV/SC prostacyclin continued uninterrupted",
+        "☐ Milrinone or dobutamine drawn up (RV support)",
+        "☐ Norepinephrine / vasopressin / epinephrine ready",
+        "☐ VA-ECMO capability identified before induction",
+        "Avoid hypoxaemia · hypercarbia · acidosis · hypothermia · high airway pressures",
+      ],
+    } : null,
+    other: (() => {
+      const pts = [];
+      if (v.tegLY30 !== null && v.tegLY30 > 3) pts.push(`Hyperfibrinolysis LY30 ${v.tegLY30}% — TXA 1 g IV`);
+      if ((v.plts !== null && v.plts < 80) || (v.inr !== null && v.inr > 1.5)) pts.push("Regional deferred — ASRA thresholds not met");
+      if (f.lvoto) pts.push("LVOTO — fluids + phenylephrine; no dobutamine");
+      if (f.dcd) pts.push("DCD graft — higher post-reperfusion syndrome risk");
+      if (f.hps) pts.push("HPS — Trendelenburg → inhaled epoprostenol/NO → methylene blue → ECMO");
+      if (f.opioid) pts.push("Opioid tolerance — continue MOUD; ketamine / dexmedetomidine");
+      if (f.varices) pts.push("Variceal bleed history — crossmatch ≥4 U pRBC, MTP available");
+      if (efLow) pts.push(`LVEF ${v.ef}% — invasive haemodynamic monitoring`);
+      return pts;
+    })(),
+    alloc: [...unos.map((n) => n.t), ...(milan ? [milan.text] : [])],
+  });
+
+  const makePdf = async () => {
+    setPdf("working");
+    try {
+      const blob = buildBriefPdf(pdfData());
+      const res = await deliverPdf(blob, `MELDplus-brief-${caseLabel(active).replace(" ", "-")}.pdf`);
+      setPdf(res === "cancelled" ? null : res);
+    } catch {
+      setPdf("failed");
+    }
+    window.setTimeout(() => setPdf((p) => (p === "working" ? p : null)), 4000);
+  };
+
   const TabBtn = ({ id, children }) => (
     <button onClick={() => setTab(id)}
       className={`px-3 py-1.5 text-[11px] font-bold rounded-full whitespace-nowrap transition-colors ${
@@ -961,46 +1066,10 @@ export default function App() {
           <span className="text-[9px] text-[#56707F] leading-snug">Two cases side by side · cleared when the app closes</span>
         </div>
 
-        {/* Share panel */}
-        {showShare && (
-          <div className="fixed inset-0 z-50 bg-black/70 flex items-start sm:items-center justify-center p-3 overflow-y-auto">
-            <div className="bg-[#101D29] border border-[#1F3645] rounded-xl w-full max-w-2xl my-4">
-              <div className="flex items-center justify-between px-3.5 py-3 border-b border-[#1F3645]">
-                <span className="flex items-center gap-2 text-[11px] font-bold text-[#E6EEF2] uppercase tracking-wide">
-                  <Share2 size={13} className="text-[#7CD992]" />Share brief · {caseLabel(active)}
-                </span>
-                <button onClick={() => setShowShare(false)} aria-label="Close" className="text-[#8FA3B3] hover:text-[#E6EEF2]">
-                  <X size={16} />
-                </button>
-              </div>
-              <div className="p-3.5">
-                <div className="flex items-start gap-2 bg-[#0e1d15] border border-[#2d5a3d] rounded-lg px-2.5 py-2 mb-2.5">
-                  <Shield size={12} className="text-[#7CD992] flex-shrink-0 mt-0.5" />
-                  <span className="text-[9.5px] text-[#B8F0C8] leading-snug">
-                    De-identified by construction — the app never collects a name, MRN, or date of birth, so none can appear here.
-                    Paste into the medical record; do not send over unsecured channels.
-                  </span>
-                </div>
-                <textarea id="brief-text" readOnly value={briefText}
-                  className="w-full h-72 bg-[#0E1A24] border border-[#27404F] rounded-md p-2.5 font-mono text-[10px] leading-relaxed text-[#C9D6DE] focus:outline-none focus:border-[#4DD8C9]" />
-                <div className="flex flex-wrap gap-2 mt-2.5">
-                  <button onClick={copyBrief}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#4DD8C9] text-[#0B141C] text-[11px] font-bold">
-                    <Copy size={12} />{copied === "done" ? "Copied ✓" : copied === "fail" ? "Select & copy manually" : "Copy text"}
-                  </button>
-                  <button onClick={shareBrief}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#101D29] border border-[#27404F] text-[#C9D6DE] text-[11px] font-bold hover:border-[#4DD8C9]">
-                    <Share2 size={12} />Share / save file
-                  </button>
-                  <button onClick={() => window.print()}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#101D29] border border-[#27404F] text-[#C9D6DE] text-[11px] font-bold hover:border-[#4DD8C9]">
-                    <BookOpen size={12} />Print / save PDF
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* The share panel is deliberately NOT rendered here — it lives outside
+            the zoom-scaled wrapper at the bottom of this component, because a
+            position:fixed overlay inherits the ancestor's zoom in WebKit and
+            drifts off-screen at anything other than 100%. */}
 
         {/* ── Print / PDF view ──
             A laid-out one-pager for the anesthesia record and the wall of the
@@ -2600,6 +2669,75 @@ export default function App() {
           </p>
         </footer>
       </div>
+
+      {/* ── Share panel ──────────────────────────────────────────────────
+          Rendered as a sibling of the zoomed wrapper, never a child of it.
+          Four ways out — backdrop, X, Escape, and the Close button — because
+          on a phone this is a full-screen takeover and a single 16 px icon
+          is not a dependable way back. */}
+      {showShare && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 flex items-start sm:items-center justify-center p-2 sm:p-3"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) closeShare(); }}
+          role="dialog" aria-modal="true" aria-label="Share brief"
+        >
+          <div className="bg-[#101D29] border border-[#1F3645] rounded-xl w-full max-w-2xl my-2 flex flex-col"
+               style={{ maxHeight: "calc(100vh - 1rem)" }}>
+            <div className="flex items-center justify-between pl-3.5 pr-1.5 py-2 border-b border-[#1F3645] flex-shrink-0">
+              <span className="flex items-center gap-2 text-[11px] font-bold text-[#E6EEF2] uppercase tracking-wide">
+                <Share2 size={13} className="text-[#7CD992]" />Share brief · {caseLabel(active)}
+              </span>
+              {/* 44 px tap target — the previous bare icon was ~16 px. */}
+              <button onClick={closeShare} aria-label="Close"
+                className="w-11 h-11 flex items-center justify-center rounded-lg text-[#8FA3B3] hover:text-[#E6EEF2] active:bg-[#1F3645]">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-3.5 overflow-y-auto flex-1" style={{ WebkitOverflowScrolling: "touch" }}>
+              <div className="flex items-start gap-2 bg-[#0e1d15] border border-[#2d5a3d] rounded-lg px-2.5 py-2 mb-2.5">
+                <Shield size={12} className="text-[#7CD992] flex-shrink-0 mt-0.5" />
+                <span className="text-[9.5px] text-[#B8F0C8] leading-snug">
+                  De-identified by construction — the app never collects a name, MRN, or date of birth, so none can appear here.
+                  Paste into the medical record; do not send over unsecured channels.
+                </span>
+              </div>
+              <textarea id="brief-text" readOnly value={briefText}
+                className="w-full h-56 sm:h-72 bg-[#0E1A24] border border-[#27404F] rounded-md p-2.5 font-mono text-[10px] leading-relaxed text-[#C9D6DE] focus:outline-none focus:border-[#4DD8C9]" />
+              <div className="flex flex-wrap gap-2 mt-2.5">
+                <button onClick={copyBrief}
+                  className="flex items-center gap-1.5 px-3 h-11 rounded-lg bg-[#4DD8C9] text-[#0B141C] text-[11px] font-bold">
+                  <Copy size={12} />{copied === "done" ? "Copied ✓" : copied === "fail" ? "Select & copy manually" : "Copy text"}
+                </button>
+                <button onClick={shareBrief}
+                  className="flex items-center gap-1.5 px-3 h-11 rounded-lg bg-[#101D29] border border-[#27404F] text-[#C9D6DE] text-[11px] font-bold hover:border-[#4DD8C9]">
+                  <Share2 size={12} />Share / save file
+                </button>
+                <button onClick={makePdf} disabled={pdf === "working"}
+                  className="flex items-center gap-1.5 px-3 h-11 rounded-lg bg-[#101D29] border border-[#27404F] text-[#C9D6DE] text-[11px] font-bold hover:border-[#4DD8C9] disabled:opacity-50">
+                  <BookOpen size={12} />
+                  {pdf === "working" ? "Building PDF…"
+                    : pdf === "downloaded" ? "PDF saved ✓"
+                    : pdf === "shared" ? "PDF sent ✓"
+                    : pdf === "failed" ? "PDF failed — try Share"
+                    : "Print / save PDF"}
+                </button>
+              </div>
+              <p className="text-[9px] text-[#56707F] leading-snug mt-2">
+                Print / save PDF builds a one-page A4 sheet with a blank patient-label box, then opens your device's
+                share sheet — Print, Save to Files, and Mail all live there.
+              </p>
+            </div>
+
+            <div className="px-3.5 py-2.5 border-t border-[#1F3645] flex-shrink-0">
+              <button onClick={closeShare}
+                className="w-full h-11 rounded-lg bg-[#182838] border border-[#27404F] text-[#C9D6DE] text-[11px] font-bold uppercase tracking-wide active:bg-[#1F3645]">
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
