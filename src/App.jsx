@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
 import {
   Activity, AlertTriangle, Heart, Wind, Droplet, Pill, Zap,
-  ChevronDown, BookOpen, Shield, ListChecks, Waves, Info
+  ChevronDown, BookOpen, Shield, ListChecks, Waves, Info, RotateCcw,
+  Share2, Copy, X, Users
 } from "lucide-react";
 
 /* ══════════════════════════════════════════════════════════
@@ -47,6 +48,8 @@ const REFERENCES = [
     u: PM("intraoperative hyponatremia one-year mortality liver transplantation Yang Scientific Reports 2018") },
   { t: "Nayyar D et al. Management of severe hypoxemia post-LT in HPS. Am J Transplant 2015",
     u: PM("Nayyar management of severe hypoxemia after liver transplantation hepatopulmonary syndrome") },
+  { t: "DuBrock HM, Savale L, Sitbon O, Raevens S, Kawut SM, Fallon MB, Heimbach JK, Chadha RM, Crespo G, Ramsay MAE, Krowka MJ. International Liver Transplantation Society practice guideline update on portopulmonary hypertension. Liver Transpl 2026;32:296–314",
+    u: PM("International Liver Transplantation Society practice guideline update on portopulmonary hypertension DuBrock 2025") },
   { t: "Stoker AD et al. DCD liver transplantation: normothermic machine perfusion. Anesth Analg 2025",
     u: PM("donation after circulatory death liver transplantation normothermic machine perfusion anesthesia") },
   { t: "Cailes B, Farouque O et al. LVOTO in liver transplantation. Transplantation 2021",
@@ -167,15 +170,18 @@ const INIT = {
   smoke: "never", cigsDay: "", smokeYears: "", quitYears: "",
   fev1pp: "", fvcpp: "", fev1fvc: "", dlcopp: "", tlcpp: "",
   lfi: "",
+  hgb: "", plts: "", fib: "",
   bili: "", inr: "", creat: "", na: "", alb: "",
   dialysis: false, aki: false, preopCRRT: false,
   k: "", ph: "", hco3: "", lactate: "", cvp: "", uop: "",
   spo2: "", hps: false, poph: false,
-  cad: false, lowEF: false, lvoto: false, exert: false, dm: false, afib: false,
+  cad: false, ef: "", rvsp: "", lvoto: false, exert: false, dm: false, afib: false,
+  rhcCO: "", rhcCI: "", rhcMPAP: "", rhcPAWP: "", rhcPVR: "",
   ascites: "none", enceph: "none", varices: false,
-  plts: "", fib: "", tegR: "", tegMA: "", tegLY30: "",
+  tegR: "", tegMA: "", tegLY30: "",
   opioid: false, dcd: false,
   hcc: false, alf: false,
+  hccLesions: "none", hccLargestCm: "", hccVasc: false, hccExtra: false,
   priorTIPS: "none", pvtGrade: "none",
 };
 
@@ -198,11 +204,54 @@ const Field = ({ label, children }) => (
   </label>
 );
 
-const NIn = (props) => (
+const NIn = ({ warn, ...props }) => (
   <input type="number" step="any" inputMode="decimal"
-    className="bg-[#0E1A24] border border-[#27404F] rounded-md px-2.5 py-2 text-[#E6EEF2] font-mono text-[15px] focus:outline-none focus:border-[#4DD8C9] w-full"
+    className={`bg-[#0E1A24] border rounded-md px-2.5 py-2 text-[#E6EEF2] font-mono text-[15px] focus:outline-none w-full ${
+      warn ? "border-[#FFC857] focus:border-[#FFC857]" : "border-[#27404F] focus:border-[#4DD8C9]"}`}
     {...props} />
 );
+
+/* ── Plausibility ranges ──
+   Wide, deliberately permissive bounds — they exist to catch transcription
+   slips (1180 typed for a sodium of 118), not to constrain clinical judgment.
+   A value outside the range is flagged, never blocked or altered. */
+const RANGES = {
+  age: [16, 100, "yrs"], heightCm: [100, 230, "cm"], weightKg: [25, 300, "kg"],
+  cigsDay: [1, 100, "per day"], smokeYears: [1, 80, "yrs"], quitYears: [0, 70, "yrs"],
+  hgb: [3, 20, "g/dL"], plts: [1, 800, "×10³/µL"], fib: [20, 900, "mg/dL"],
+  bili: [0.1, 60, "mg/dL"], inr: [0.7, 12, ""], creat: [0.1, 15, "mg/dL"],
+  na: [100, 175, "mmol/L"], alb: [0.5, 6, "g/dL"], spo2: [50, 100, "%"],
+  k: [1.5, 9, "mmol/L"], ph: [6.6, 7.8, ""], hco3: [2, 45, "mmol/L"],
+  lactate: [0.2, 30, "mmol/L"], cvp: [0, 40, "mmHg"], uop: [0, 10, "mL/kg/hr"],
+  fev1pp: [10, 150, "% pred"], fvcpp: [10, 150, "% pred"], fev1fvc: [10, 100, "%"],
+  dlcopp: [5, 150, "% pred"], tlcpp: [20, 160, "% pred"],
+  ef: [5, 80, "%"], rvsp: [5, 150, "mmHg"],
+  rhcCO: [1, 15, "L/min"], rhcCI: [0.5, 8, "L/min/m²"], rhcMPAP: [5, 90, "mmHg"],
+  rhcPAWP: [0, 45, "mmHg"], rhcPVR: [0.1, 20, "WU"],
+  tegR: [0, 60, "min"], tegMA: [0, 90, "mm"], tegLY30: [0, 100, "%"],
+  lfi: [1, 7, ""], hccLargestCm: [0.2, 25, "cm"],
+};
+
+const outOfRange = (key, value) => {
+  const n = num(value);
+  const r = RANGES[key];
+  return n !== null && r && (n < r[0] || n > r[1]) ? r : null;
+};
+
+/* Numeric field with an inline, non-blocking plausibility hint. */
+const NumField = ({ label, value, onChange, placeholder, fieldKey }) => {
+  const r = outOfRange(fieldKey, value);
+  return (
+    <Field label={label}>
+      <NIn placeholder={placeholder} value={value} onChange={onChange} warn={!!r} />
+      {r && (
+        <span className="text-[9px] text-[#FFC857] leading-snug mt-0.5">
+          Outside the expected range ({r[0]}–{r[1]}{r[2] ? ` ${r[2]}` : ""}) — check this value
+        </span>
+      )}
+    </Field>
+  );
+};
 
 const Sel = ({ value, onChange, options }) => (
   <select value={value} onChange={onChange}
@@ -240,6 +289,14 @@ const Bul = ({ children }) => (
 
 const Collap = ({ title, icon: I, color, children, open: initOpen = false }) => {
   const [open, setOpen] = useState(initOpen);
+  /* Expand when the condition that should open this section becomes true —
+     e.g. ticking "Hepatocellular carcinoma" opens the Milan / T2 check.
+     Collapsing is left to the user. */
+  const wasOpen = React.useRef(initOpen);
+  React.useEffect(() => {
+    if (initOpen && !wasOpen.current) setOpen(true);
+    wasOpen.current = initOpen;
+  }, [initOpen]);
   return (
     <div className="bg-[#101D29] border border-[#1F3645] rounded-xl overflow-hidden">
       <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-3.5 py-3">
@@ -277,25 +334,49 @@ const Formula = ({ name, body, refText, refUrl }) => {
 
 /* ══════════════ App ══════════════ */
 export default function App() {
-  const [f, setF] = useState(INIT);
+  /* Two working slots, held in memory only. Nothing is written to disk:
+     switching between cases keeps both in view during a single session, and
+     closing the app discards them. */
+  const [cases, setCases] = useState([INIT, INIT]);
+  const [active, setActive] = useState(0);
+  const f = cases[active];
+  const setF = (u) => setCases((cs) => cs.map((c, i) => (i === active ? (typeof u === "function" ? u(c) : u) : c)));
+
   const [tab, setTab] = useState("patient");
   const [zoom, setZoom] = useState(1);
+  const [showShare, setShowShare] = useState(false);
+  const [copied, setCopied] = useState(null);
   const zoomStep = (d) => setZoom((z) => clamp(Math.round((z + d) * 100) / 100, 0.9, 1.8));
   const set = (k) => (e) => setF((p) => ({ ...p, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value }));
+  const caseLabel = (i) => `Case ${String.fromCharCode(65 + i)}`;
+  const caseFilled = (c) => Object.keys(INIT).some((k) => c[k] !== INIT[k]);
+  const resetAll = () => {
+    if (window.confirm(`Reset ${caseLabel(active)}? This clears every field for this case and cannot be undone. The other case is not affected.`)) {
+      setF(INIT);
+      setTab("patient");
+    }
+  };
 
   const v = useMemo(() => ({
     age: num(f.age), bili: num(f.bili), inr: num(f.inr), creat: num(f.creat),
     na: num(f.na), alb: num(f.alb), k: num(f.k), ph: num(f.ph), hco3: num(f.hco3),
     lactate: num(f.lactate), cvp: num(f.cvp), uop: num(f.uop), spo2: num(f.spo2),
     plts: num(f.plts), fib: num(f.fib), tegR: num(f.tegR), tegMA: num(f.tegMA), tegLY30: num(f.tegLY30),
+    hgb: num(f.hgb),
     weightKg: num(f.weightKg), heightCm: num(f.heightCm),
     cigsDay: num(f.cigsDay), smokeYears: num(f.smokeYears), quitYears: num(f.quitYears),
     fev1pp: num(f.fev1pp), fvcpp: num(f.fvcpp), fev1fvc: num(f.fev1fvc), dlcopp: num(f.dlcopp), tlcpp: num(f.tlcpp),
     lfi: num(f.lfi),
+    ef: num(f.ef), rvsp: num(f.rvsp),
+    rhcCO: num(f.rhcCO), rhcCI: num(f.rhcCI), rhcMPAP: num(f.rhcMPAP), rhcPAWP: num(f.rhcPAWP), rhcPVR: num(f.rhcPVR),
+    hccLargestCm: num(f.hccLargestCm),
   }), [f]);
 
   const hasCore = v.bili !== null && v.inr !== null && v.creat !== null;
   const has3 = hasCore && v.na !== null && v.alb !== null;
+
+  /* Reduced systolic function, derived from the entered ejection fraction. */
+  const efLow = v.ef !== null && v.ef < 55;
 
   const m3 = has3 ? meld3(v.bili, v.inr, v.creat, v.na, v.alb, f.sex === "female", f.dialysis) : null;
   const mNa = hasCore ? meldNa(v.bili, v.inr, v.creat, v.na ?? 137, f.dialysis) : null;
@@ -464,6 +545,113 @@ export default function App() {
     return { label: "Frail", pts: 2, c: "#FF6B6B" };
   }, [v.lfi]);
 
+  /* ── Pulmonary hypertension / POPH engine ──
+     ILTS practice guideline update on portopulmonary hypertension
+     (DuBrock, Savale, Sitbon, … Krowka. Liver Transpl 2026;32:296–314),
+     which adopts the ESC/ERS revised haemodynamic definitions:
+       PH                    mPAP >20 mmHg
+       Precapillary (POPH)   mPAP >20, PAWP ≤15, PVR >2 WU
+       Isolated postcapillary mPAP >20, PAWP >15, PVR ≤2 WU
+       Combined pre/post      mPAP >20, PAWP >15, PVR >2 WU
+     Severity (Table 2): mild 20<mPAP<35 · moderate 35≤mPAP<45 · severe mPAP≥45.
+     Screening (Rec 3–5): echo for all LT/TIPS candidates; PH-expert consultation
+     ± RHC for estimated RVSP >40 mmHg (lowered from 50) or more than mild RV
+     dilation/dysfunction.
+     LT candidacy (Rec 13–14): absolute contraindications are mPAP >45–50 mmHg,
+     PVR >5 WU, or severe RV dysfunction; LT with MELD exception is considered
+     at mPAP <35, or mPAP 35–45 with PVR <3 WU.
+     PVR is entered in Wood units; 1 WU = 80 dyn·s·cm⁻⁵. */
+  const ph = useMemo(() => {
+    const { rvsp, rhcMPAP: mpap, rhcPAWP: pawp, rhcPVR: pvr } = v;
+    const echoTrigger = rvsp !== null && rvsp > 40;
+    const hasRHC = mpap !== null;
+    if (!echoTrigger && !hasRHC && !f.poph) return null;
+
+    let sev = null, pattern = null, candidacy = null;
+    if (hasRHC) {
+      sev = mpap <= 20 ? { label: "No PH", c: "#7CD992" }
+        : mpap < 35 ? { label: "Mild", c: "#FFC857" }
+        : mpap < 45 ? { label: "Moderate", c: "#FF9A5A" }
+        : { label: "Severe", c: "#FF6B6B" };
+
+      if (mpap > 20) {
+        if (pvr !== null && pawp !== null) {
+          pattern = pawp <= 15 && pvr > 2 ? "Precapillary — POPH pattern"
+            : pawp > 15 && pvr > 2 ? "Combined pre- and postcapillary"
+            : pawp > 15 ? "Isolated postcapillary"
+            : "mPAP elevated with PVR ≤2 WU — high-flow / hyperdynamic pattern";
+        } else if (pvr !== null) {
+          pattern = pvr > 2 ? "PVR >2 WU — enter PAWP to confirm a precapillary (POPH) pattern"
+            : "PVR ≤2 WU — favours a high-flow or postcapillary mechanism";
+        } else {
+          pattern = "Enter PVR (and PAWP) to classify the pattern";
+        }
+
+        // LT candidacy per Rec 13/14
+        if (mpap > 45 || (pvr !== null && pvr > 5)) {
+          candidacy = { lvl: "high", text: `mPAP ${mpap} mmHg${pvr !== null ? ` · PVR ${pvr} WU` : ""} — meets the ILTS absolute-contraindication range (mPAP >45–50 mmHg, PVR >5 WU, or severe RV dysfunction). Escalate PAH therapy; LT only after haemodynamics improve, by multidisciplinary decision.` };
+        } else if (mpap >= 35) {
+          candidacy = pvr !== null && pvr < 3
+            ? { lvl: "med", text: `mPAP ${mpap} mmHg with PVR ${pvr} WU (<3) — LT with POPH MELD exception may be considered on multidisciplinary evaluation (ILTS Rec 14).` }
+            : { lvl: "med", text: `mPAP ${mpap} mmHg (35–45) — consider escalation of PAH therapy and deferral of LT unless PVR is <3 WU (ILTS Rec 14).` };
+        } else {
+          candidacy = { lvl: "ok", text: `mPAP ${mpap} mmHg (<35) — within the range where LT is considered; evaluate for a POPH MELD exception if criteria are otherwise met (ILTS Rec 14).` };
+        }
+      }
+    }
+
+    const poph = hasRHC && mpap > 20 && (pvr === null || pvr > 2) && (pawp === null || pawp <= 15);
+    const confirmedPH = hasRHC && mpap > 20;
+    return { echoTrigger, hasRHC, sev, pattern, candidacy, poph, confirmedPH, active: confirmedPH || echoTrigger || f.poph };
+  }, [v, f.poph]);
+
+  /* ── Hyponatremia / sodium management protocol ──
+     Verbeek TA, Bezinover D, et al. Hyponatremia and liver transplantation:
+     a narrative review. J Cardiothorac Vasc Anesth 2022. Correction targets:
+     preoperative 4–8 mmol/L per day (4–6 when ODS risk is high; therapeutic
+     limit ≤8 in any 24 h), intraoperative ≤6 mmol/L per 24 h, postoperative
+     4–6 mmol/L per day. An intraoperative rise >10 mmol/L is associated with
+     higher 90-day mortality and more neurologic complications. */
+  const naProt = useMemo(() => {
+    if (v.na === null || v.na >= 135) return null;
+    const tier = v.na < 125 ? { label: "Severe", c: "#FF6B6B", lvl: "high" }
+      : v.na < 130 ? { label: "Moderate", c: "#FF9A5A", lvl: "med" }
+      : { label: "Mild", c: "#FFC857", lvl: "med" };
+    // ODS risk factors captured elsewhere in the app
+    const odsRisk = [];
+    if (v.na <= 105) odsRisk.push("Na⁺ ≤105 mmol/L");
+    if (v.na < 120) odsRisk.push("profound hyponatremia");
+    odsRisk.push("advanced liver disease");
+    if (v.k !== null && v.k < 3.5) odsRisk.push(`hypokalemia (K⁺ ${v.k})`);
+    if (metab.bmi !== null && metab.bmi < 18.5) odsRisk.push("malnutrition / underweight");
+    return { tier, odsRisk, highRisk: odsRisk.length > 1 };
+  }, [v.na, v.k, metab.bmi]);
+
+  /* ── HCC Milan / OPTN T2 exception check ──
+     T2 (OPTN Policy 9): 1 lesion 2–5 cm, or 2–3 lesions each 1–3 cm, with no
+     macrovascular invasion and no extrahepatic spread. If met, the candidate is
+     eligible for the standard HCC exception (score set to MMaT − 3) after the
+     mandatory 6-month waiting period. Reference material only — the NLRB and the
+     transplant program adjudicate the actual exception request. */
+  const milan = useMemo(() => {
+    if (f.hccLesions === "none") return null;
+    if (f.hccVasc) return { meets: false, text: "Does not meet Milan / T2 criteria — macrovascular invasion present." };
+    if (f.hccExtra) return { meets: false, text: "Does not meet Milan / T2 criteria — extrahepatic spread present." };
+    if (f.hccLesions === "gt3") return { meets: false, text: "Does not meet Milan / T2 criteria — more than 3 lesions." };
+    if (v.hccLargestCm === null) return { meets: null, text: "Enter the size of the largest lesion to complete the check." };
+    if (f.hccLesions === "1") {
+      return v.hccLargestCm >= 2 && v.hccLargestCm <= 5
+        ? { meets: true, text: `Meets Milan / T2 criteria — 1 lesion at ${v.hccLargestCm} cm (within 2–5 cm), no vascular invasion, no extrahepatic spread. Eligible for the standard HCC exception: score set to MMaT − 3 after the mandatory 6-month wait.` }
+        : { meets: false, text: `Does not meet Milan / T2 criteria — a solitary lesion must be 2–5 cm (entered ${v.hccLargestCm} cm).` };
+    }
+    if (f.hccLesions === "23") {
+      return v.hccLargestCm >= 1 && v.hccLargestCm <= 3
+        ? { meets: true, text: `Meets Milan / T2 criteria — 2–3 lesions, largest ${v.hccLargestCm} cm (each within 1–3 cm), no vascular invasion, no extrahepatic spread. Eligible for the standard HCC exception: score set to MMaT − 3 after the mandatory 6-month wait.` }
+        : { meets: false, text: `Does not meet Milan / T2 criteria — with 2–3 lesions each must be 1–3 cm (largest entered ${v.hccLargestCm} cm).` };
+    }
+    return null;
+  }, [f.hccLesions, f.hccVasc, f.hccExtra, v.hccLargestCm]);
+
   /* ── Composite Perioperative Risk (HEURISTIC — not a validated score,
      and NOT the MELD allocation score). Transparent aggregation of MELD 3.0,
      Child-Pugh, frailty (LFI), PFT, BMI, smoking, and cardiopulmonary flags
@@ -486,7 +674,7 @@ export default function App() {
     if (f.smoke === "current") push("Current smoker", 1, "");
     const cflags = [];
     if (f.cad) cflags.push("CAD");
-    if (f.lowEF) cflags.push("low EF");
+    if (efLow) cflags.push("low EF");
     if (f.lvoto) cflags.push("LVOTO");
     if (f.poph) cflags.push("PoPH");
     if (f.hps && v.spo2 !== null && v.spo2 < 90) cflags.push("HPS hypoxemia");
@@ -498,7 +686,7 @@ export default function App() {
       : pts >= 3 ? { label: "Moderate", c: "#FFC857", bg: "#1d1707", br: "#6b5216" }
       : { label: "Low", c: "#7CD992", bg: "#0e1d15", br: "#2d5a3d" };
     return { pts, tier, parts };
-  }, [m3, ctp, frailty, pft, metab, f, v.lfi, v.spo2]);
+  }, [m3, ctp, frailty, pft, metab, f, v.lfi, v.spo2, efLow]);
 
   /* ── UNOS status logic ── */
   const unos = useMemo(() => {
@@ -511,30 +699,198 @@ export default function App() {
     else if (m3 !== null) notes.push({ t: `MELD ${m3} — below 15`, d: "Transplant may confer net harm below MELD 15; local allocation only. Reassess for exception criteria.", lvl: "info" });
     if (f.hcc) notes.push({ t: "HCC exception → MMaT − 3", d: "If within Milan/T2 criteria (1 lesion 2–5 cm, or 2–3 lesions each 1–3 cm, no vascular invasion, no extrahepatic spread): after a 6-month waiting period, listed at MMaT − 3. Example: if area MMaT = 31, exception score = 28. Fixed — does not escalate every 3 months as under the old policy.", lvl: "info" });
     if (f.hps && v.spo2 !== null && v.spo2 < 90) notes.push({ t: "HPS exception → MMaT − 3", d: "PaO₂ <60 mmHg on room air with documented intrapulmonary shunting qualifies for a MMaT − 3 exception score.", lvl: "info" });
-    if (f.poph) notes.push({ t: "PoPH exception → MMaT − 3", d: "mPAP ≥25 mmHg at rest with PVR >240 dyn·s·cm⁻⁵, treated to mPAP <35 mmHg, qualifies for a MMaT − 3 exception score.", lvl: "info" });
+    if (f.poph || ph?.confirmedPH) notes.push({ t: "POPH exception → MMaT − 3", d: "Precapillary PH in portal hypertension (mPAP >20 mmHg, PAWP ≤15, PVR >2 WU) on PAH therapy. Post-treatment haemodynamics must reach mPAP <35 mmHg, or mPAP 35–45 with PVR <3 WU, with serial RHC every 3 months to maintain the exception. mPAP >45–50, PVR >5 WU, or severe RV dysfunction are absolute contraindications to LT.", lvl: "info" });
     return notes;
-  }, [f, m3, v.spo2]);
+  }, [f, m3, v.spo2, ph]);
+
+  /* Entered values that fall outside the plausibility ranges — surfaced so a
+     mistyped figure on one tab cannot quietly drive a score on another. */
+  const implausible = useMemo(
+    () => Object.keys(RANGES).filter((k) => outOfRange(k, f[k])),
+    [f]
+  );
 
   /* ── Red flags ── */
   const flags = useMemo(() => {
     const r = [];
+    if (implausible.length) r.push({ t: `${implausible.length} entered value${implausible.length === 1 ? "" : "s"} outside the expected range — check for a transcription error before relying on these scores. Look for the amber fields on the Patient tab.`, l: "med" });
     if (m3 !== null && m3 >= 30) r.push({ t: `MELD 3.0 ${m3} — 3-month mortality ${mortality3mo(m3)}. ICU-level monitoring, early MTP readiness, CRRT availability.`, l: "high" });
     if (ctp?.cls === "C") r.push({ t: `Child-Pugh C (${ctp.pts} pts) — 1-year survival ${ctp.surv1y}; non-transplant abdominal surgery mortality ${ctp.mort}.`, l: "high" });
     if (crrt.met.length > 0) r.push({ t: `IoCRRT criteria met (${crrt.met.length}) — see CRRT tab. Coordinate nephrology + perfusion before induction.`, l: "high" });
-    if (v.na !== null && v.na < 125) r.push({ t: `Na⁺ ${v.na} — ODS risk. Correct ≤8–10 mmol/L per 24h. Monitor Na⁺ q1–2h intraoperatively.`, l: "high" });
+    if (v.na !== null && v.na < 125) r.push({ t: `Na⁺ ${v.na} — ODS risk. Follow the sodium protocol on the Plan tab: limit the intraoperative change to ≤6 mmol/L per 24 h, check Na⁺ frequently, and involve nephrology.`, l: "high" });
     else if (v.na !== null && v.na < 130) r.push({ t: `Na⁺ ${v.na} — intraoperative Na <130 is an independent predictor of 1-year mortality (Yang et al.).`, l: "med" });
     if (v.tegLY30 !== null && v.tegLY30 > 3) r.push({ t: `TEG LY30 ${v.tegLY30}% — hyperfibrinolysis. TXA 1 g IV now. Most lethal coagulation pattern in LT.`, l: "high" });
-    if (f.poph) r.push({ t: "Elevated RVSP — RHC required before listing. Severe PoPH (mPAP >50) is a relative contraindication without pulmonary vasodilator therapy.", l: "high" });
+    if (f.poph && !ph?.hasRHC) r.push({ t: "Elevated RVSP / PASP on echo — right heart catheterization required before listing to confirm precapillary PH (mPAP >20 mmHg, PAWP ≤15, PVR >2 WU) and to guide PAH therapy (ILTS 2026).", l: "high" });
     if (f.hps && v.spo2 !== null && v.spo2 < 90) r.push({ t: `SpO₂ ${v.spo2}% with HPS features — prepare inhaled NO/epoprostenol; consider ECMO planning if PaO₂ <50 mmHg.`, l: "high" });
     if (f.lvoto) r.push({ t: "LVOTO — fluids and phenylephrine, not inotropes. Dobutamine contraindicated. 24.3% prevalence in LT candidates.", l: "high" });
     if (f.cad) r.push({ t: "Known CAD — DSE sensitivity only 25–41% in ESLD. Low threshold for coronary angiography. Cangrelor bridge if recent PCI/DES.", l: "high" });
-    if (f.lowEF) r.push({ t: "Reduced LVEF — cirrhotic cardiomyopathy may be masked by the vasodilated state. Invasive hemodynamic monitoring mandatory.", l: "high" });
+    if (efLow) r.push({ t: `EF ${v.ef}% (<55%) — cirrhotic cardiomyopathy may be masked by the vasodilated state. Invasive hemodynamic monitoring mandatory.`, l: "high" });
+    if (v.rvsp !== null && v.rvsp > 40) r.push({ t: `RVSP ${v.rvsp} mmHg on echo (>40) — refer for PH expert consultation ± right heart catheterization before listing (ILTS 2026).`, l: "med" });
+    if (ph?.poph) r.push({ t: `Precapillary pulmonary hypertension on RHC — POPH pattern. Refer to a PH expert for PAH therapy (PDE5 inhibitor, sGC stimulator, ERA, or prostacyclin analogue) to reduce mPAP and PVR before transplant. Avoid TIPS and beta-blockers.`, l: "high" });
+    if (ph?.confirmedPH) r.push({ t: `Confirmed pulmonary hypertension — intraoperative plan changes: PA catheter + TEE monitoring, inhaled nitric oxide or inhaled prostacyclin immediately available, RV inotrope (milrinone/dobutamine) ready, and VA-ECMO capability identified before induction.`, l: "high" });
+    if (v.rhcMPAP !== null && (v.rhcMPAP > 45 || (v.rhcPVR !== null && v.rhcPVR > 5))) r.push({ t: `mPAP ${v.rhcMPAP} mmHg${v.rhcPVR !== null ? ` · PVR ${v.rhcPVR} WU` : ""} — within the ILTS absolute-contraindication range for LT (mPAP >45–50, PVR >5 WU, or severe RV dysfunction) until treated.`, l: "high" });
     if (v.plts !== null && v.plts < 50) r.push({ t: `Platelets ${v.plts}k — defer neuraxial. ASRA: platelets >80k, INR <1.5 minimum for epidural.`, l: "med" });
     if (f.dcd) r.push({ t: "DCD allograft — post-reperfusion syndrome ~42% with cold storage vs 11% with NMP (Mayo 2025). Higher vasoactive and transfusion needs.", l: "med" });
     if (f.opioid) r.push({ t: "Opioid tolerance — continue MOUD perioperatively. Add ketamine/dexmedetomidine. Involve pain/addiction medicine pre-LT.", l: "med" });
     if (f.varices) r.push({ t: "Variceal bleed history — crossmatch ≥4 units pRBC. TEG-guided resuscitation. MTP packs immediately available.", l: "med" });
     return r;
-  }, [f, v, m3, ctp, crrt]);
+  }, [f, v, m3, ctp, crrt, efLow, ph, implausible]);
+
+  /* ── Shareable brief ──
+     Assembles the computed output — scores, red flags, CRRT verdict, PH and
+     sodium plans, allocation context — as plain text for handoff or for
+     pasting into the medical record. Carries no patient identifiers: the app
+     never asks for a name, MRN, or date of birth, so none can appear here. */
+  const buildBrief = () => {
+    const L = [];
+    const rule = (t) => L.push("", `── ${t} ${"─".repeat(Math.max(0, 46 - t.length))}`);
+    const kv = (k, val) => L.push(`${k.padEnd(22)}${val}`);
+    const now = new Date();
+
+    L.push("MELD+ · PERIOPERATIVE RISK BRIEF");
+    L.push(`${caseLabel(active)} · generated ${now.toLocaleString()}`);
+    L.push("No patient identifiers are included in this summary.");
+    if (implausible.length) L.push(`!! ${implausible.length} entered value${implausible.length === 1 ? " is" : "s are"} outside the expected range — verify before use.`);
+
+    rule("INPUTS");
+    const demo = [];
+    if (v.age !== null) demo.push(`Age ${v.age}`);
+    demo.push(f.sex === "female" ? "female" : "male");
+    if (metab.bmi !== null) demo.push(`BMI ${metab.bmi.toFixed(1)} (${metab.bmiC.label})`);
+    if (f.smoke !== "never") demo.push(`${f.smoke} smoker${metab.packYears !== null ? `, ${metab.packYears.toFixed(0)} pack-years` : ""}`);
+    L.push(demo.join(" · "));
+    const labs = [];
+    if (v.bili !== null) labs.push(`Total bili ${v.bili}`);
+    if (v.inr !== null) labs.push(`INR ${v.inr}`);
+    if (v.creat !== null) labs.push(`Creat ${v.creat}`);
+    if (v.na !== null) labs.push(`Na ${v.na}`);
+    if (v.alb !== null) labs.push(`Alb ${v.alb}`);
+    if (v.hgb !== null) labs.push(`Hgb ${v.hgb}`);
+    if (v.plts !== null) labs.push(`Plts ${v.plts}k`);
+    if (v.fib !== null) labs.push(`Fib ${v.fib}`);
+    if (labs.length) L.push(labs.join(" · "));
+    const card = [];
+    if (v.ef !== null) card.push(`LVEF ${v.ef}%`);
+    if (v.rvsp !== null) card.push(`RVSP ${v.rvsp} mmHg`);
+    if (v.rhcMPAP !== null) card.push(`mPAP ${v.rhcMPAP}`);
+    if (v.rhcPAWP !== null) card.push(`PAWP ${v.rhcPAWP}`);
+    if (v.rhcPVR !== null) card.push(`PVR ${v.rhcPVR} WU`);
+    if (v.rhcCO !== null) card.push(`CO ${v.rhcCO}`);
+    if (v.rhcCI !== null) card.push(`CI ${v.rhcCI}`);
+    if (card.length) L.push(card.join(" · "));
+    if (pft) L.push(`PFT: ${pft.pattern}${pft.dlcoSev ? ` · DLCO ${pft.dlcoSev.label}` : ""}`);
+
+    rule("SCORES");
+    kv("MELD 3.0", m3 !== null ? `${m3} / 40 · ${t3.label} risk` : "— (incomplete)");
+    kv("MELD-Na", mNa !== null ? `${mNa} / 40${m3 !== null ? ` · Δ ${m3 - mNa > 0 ? "+" : ""}${m3 - mNa}` : ""}` : "—");
+    if (m3 !== null) {
+      kv("90-day survival", `${survival90(m3).toFixed(1)}%`);
+      kv("3-month mortality", mortality3mo(m3));
+    }
+    if (ctp) kv("Child-Pugh", `${ctp.cls} · ${ctp.pts} pts · 1-yr survival ${ctp.surv1y}`);
+    if (frailty) kv("Frailty (LFI)", `${v.lfi} · ${frailty.label}`);
+    if (composite) {
+      kv("Composite risk", `${composite.tier.label} (${composite.pts} pts) — heuristic, not an allocation score`);
+      composite.parts.forEach((p) => L.push(`   · ${p.label}${p.detail ? ` (${p.detail})` : ""} +${p.p}`));
+    }
+
+    rule(`RED FLAGS (${flags.length})`);
+    if (!flags.length) L.push("None from current inputs.");
+    flags.forEach((r) => L.push(`[${r.l === "high" ? "HIGH" : r.l === "med" ? "MED " : "INFO"}] ${r.t}`));
+
+    rule("INTRAOPERATIVE CRRT");
+    L.push(crrt.met.length > 0 ? `INDICATED — ${crrt.met.length} criteri${crrt.met.length === 1 ? "on" : "a"} met`
+      : crrt.antic.length > 0 ? "ANTICIPATE — prime the circuit" : "No criteria met");
+    crrt.met.forEach((c) => L.push(`   · ${c.t} — ${c.d}`));
+    if (crrt.antic.length) L.push(`   Anticipate: ${crrt.antic.join(" · ")}`);
+    crrt.contra.forEach((c) => L.push(`   ! ${c}`));
+
+    if (ph?.active) {
+      rule("PULMONARY HYPERTENSION");
+      if (ph.sev) L.push(`Severity: ${ph.sev.label}${v.rhcMPAP !== null ? ` (mPAP ${v.rhcMPAP} mmHg)` : ""}`);
+      if (ph.pattern) L.push(ph.pattern);
+      if (ph.candidacy) L.push(ph.candidacy.text);
+      L.push("Intraoperative plan (ILTS 2026):");
+      L.push("   · PA catheter + TEE monitoring throughout");
+      L.push("   · Inhaled nitric oxide 20–40 ppm or inhaled epoprostenol checked and in the room before induction");
+      L.push("   · Continue IV/SC prostacyclin therapy uninterrupted; resume oral/inhaled agents postoperatively");
+      L.push("   · Milrinone or dobutamine ready for RV support");
+      L.push("   · Norepinephrine / vasopressin / epinephrine as vasopressors");
+      L.push("   · VA-ECMO capability identified before induction (rescue for acute RV failure)");
+      L.push("   · Avoid hypoxaemia, hypercarbia, acidosis, hypothermia, high airway pressures — all raise PVR");
+    }
+
+    if (naProt) {
+      rule("SODIUM PROTOCOL");
+      L.push(`Na⁺ ${v.na} mmol/L — ${naProt.tier.label} hyponatremia`);
+      L.push(`Correction limits: preop 4–8 mmol/L/day (4–6 if ODS risk high) · intraop ≤6 mmol/L per 24 h · postop 4–6 mmol/L/day`);
+      if (naProt.odsRisk.length) L.push(`ODS risk factors: ${naProt.odsRisk.join(" · ")}`);
+      L.push("   · Limit sodium-containing fluids and products; hypotonic carriers where volume allows");
+      L.push("   · Low-sodium CRRT (119–126 mmol/L) rather than standard 140 mmol/L dialysate");
+      L.push("   · THAM rather than bicarbonate for acidosis");
+      L.push("   · Re-lower with free water ± desmopressin if Na⁺ climbs too fast");
+    }
+
+    const plan = [];
+    if (v.tegLY30 !== null && v.tegLY30 > 3) plan.push(`Hyperfibrinolysis (LY30 ${v.tegLY30}%) — TXA 1 g IV`);
+    if ((v.plts !== null && v.plts < 80) || (v.inr !== null && v.inr > 1.5)) plan.push("Regional deferred — ASRA thresholds not met (plts >80k, INR <1.5); systemic multimodal only");
+    if (f.lvoto) plan.push("LVOTO — fluids + phenylephrine; dobutamine contraindicated");
+    if (f.dcd) plan.push("DCD graft — higher post-reperfusion syndrome risk; anticipate vasoactive and transfusion needs");
+    if (f.hps) plan.push("HPS — stepwise hypoxemia plan: Trendelenburg → inhaled epoprostenol/NO → methylene blue → embolization → ECMO");
+    if (f.opioid) plan.push("Opioid tolerance — continue MOUD; ketamine/dexmedetomidine adjuncts");
+    if (f.varices) plan.push("Variceal bleed history — crossmatch ≥4 units pRBC, MTP packs available");
+    if (plan.length) { rule("OTHER KEY PLAN POINTS"); plan.forEach((p) => L.push(`   · ${p}`)); }
+
+    if (unos.length) {
+      rule("ALLOCATION CONTEXT");
+      unos.forEach((n) => L.push(`${n.t} — ${n.d}`));
+    }
+
+    if (f.hcc || milan) {
+      rule("HCC — MILAN / T2");
+      L.push(milan ? milan.text : "HCC flagged — Milan / T2 exception check not completed (enter lesion count and size on the Patient tab).");
+    }
+
+    L.push("");
+    L.push("─".repeat(50));
+    L.push("MELD+ is clinical decision support for licensed clinicians. It does not");
+    L.push("diagnose, prescribe, or replace clinical judgment, institutional protocol,");
+    L.push("or current OPTN policy. Verify allocation questions at optn.transplant.hrsa.gov.");
+    return L.join("\n");
+  };
+
+  const briefText = showShare ? buildBrief() : "";
+
+  const copyBrief = async () => {
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(briefText);
+      ok = true;
+    } catch {
+      /* Older WKWebView / non-secure context — fall back where available. */
+      try {
+        const ta = document.getElementById("brief-text");
+        if (ta && typeof document.execCommand === "function") {
+          ta.focus(); ta.select();
+          ok = document.execCommand("copy");
+        }
+      } catch { ok = false; }
+    }
+    setCopied(ok ? "done" : "fail");
+    window.setTimeout(() => setCopied(null), 2500);
+  };
+
+  const shareBrief = async () => {
+    const title = `MELD+ brief — ${caseLabel(active)}`;
+    if (navigator.share) {
+      try { await navigator.share({ title, text: briefText }); return; } catch { /* dismissed */ }
+    }
+    const blob = new Blob([briefText], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `MELDplus-brief-${caseLabel(active).replace(" ", "-")}.txt`;
+    a.click(); URL.revokeObjectURL(url);
+  };
 
   const TabBtn = ({ id, children }) => (
     <button onClick={() => setTab(id)}
@@ -558,28 +914,285 @@ export default function App() {
             <p className="text-[10px] text-[#56707F] mt-0.5">
               Liver transplant anesthesia · clinical decision support
             </p>
-            <div className="mt-1.5 inline-flex flex-col bg-[#12101D] border border-[#3a2f57] rounded-md px-2 py-1">
-              <span className="text-[10.5px] font-semibold text-[#C9A8FF] leading-tight">Saifeldin A. Mahmoud, MD, PhD</span>
-              <span className="text-[8.5px] text-[#8FA3B3] leading-tight">Director, Liver Transplant Anesthesia</span>
-            </div>
           </div>
-          {/* Text-zoom control (pinch-to-zoom is also enabled) */}
-          <div className="flex items-center gap-1 flex-shrink-0 bg-[#101D29] border border-[#1F3645] rounded-full px-1 py-0.5">
-            <button onClick={() => zoomStep(-0.1)} aria-label="Decrease text size"
-              className="w-7 h-7 rounded-full text-[#C9D6DE] text-[15px] font-bold hover:bg-[#1F3645] disabled:opacity-40" disabled={zoom <= 0.9}>A−</button>
-            <span className="text-[9px] text-[#8FA3B3] w-9 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => zoomStep(0.1)} aria-label="Increase text size"
-              className="w-7 h-7 rounded-full text-[#E6EEF2] text-[17px] font-bold hover:bg-[#1F3645] disabled:opacity-40" disabled={zoom >= 1.8}>A+</button>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {/* Share — builds a de-identified brief from the current case */}
+            <button onClick={() => setShowShare(true)} aria-label="Share brief"
+              className="flex items-center gap-1 h-8 px-2.5 rounded-full bg-[#0e1d15] border border-[#2d5a3d] text-[#B8F0C8] text-[10px] font-bold uppercase tracking-wide hover:border-[#4DD8C9] transition-colors">
+              <Share2 size={12} />Share
+            </button>
+            {/* Reset — clears all entered values for the active case */}
+            <button onClick={resetAll} aria-label="Reset all fields"
+              className="flex items-center gap-1 h-8 px-2.5 rounded-full bg-[#101D29] border border-[#1F3645] text-[#8FA3B3] text-[10px] font-bold uppercase tracking-wide hover:text-[#FF6B6B] hover:border-[#5a1a1a] transition-colors">
+              <RotateCcw size={12} />Reset
+            </button>
+            {/* Text-zoom control (pinch-to-zoom is also enabled) */}
+            <div className="flex items-center gap-1 bg-[#101D29] border border-[#1F3645] rounded-full px-1 py-0.5">
+              <button onClick={() => zoomStep(-0.1)} aria-label="Decrease text size"
+                className="w-7 h-7 rounded-full text-[#C9D6DE] text-[15px] font-bold hover:bg-[#1F3645] disabled:opacity-40" disabled={zoom <= 0.9}>A−</button>
+              <span className="text-[9px] text-[#8FA3B3] w-9 text-center tabular-nums">{Math.round(zoom * 100)}%</span>
+              <button onClick={() => zoomStep(0.1)} aria-label="Increase text size"
+                className="w-7 h-7 rounded-full text-[#E6EEF2] text-[17px] font-bold hover:bg-[#1F3645] disabled:opacity-40" disabled={zoom >= 1.8}>A+</button>
+            </div>
           </div>
         </header>
 
         {/* Privacy banner */}
-        <div className="flex items-center gap-2 bg-[#0e1d15] border border-[#2d5a3d] rounded-lg px-3 py-2 mb-4">
+        <div className="flex items-center gap-2 bg-[#0e1d15] border border-[#2d5a3d] rounded-lg px-3 py-2 mb-3">
           <Shield size={13} className="text-[#7CD992] flex-shrink-0" />
           <span className="text-[10px] text-[#B8F0C8] leading-snug">
             Session-only. No patient data is stored, transmitted, or logged. All computation is local to this device.
           </span>
         </div>
+
+        {/* Case slots — two working cases held in memory for this session only */}
+        <div className="flex items-center gap-2 mb-4">
+          <Users size={12} className="text-[#8FA3B3] flex-shrink-0" />
+          <div className="flex gap-1 bg-[#101D29] border border-[#1F3645] rounded-full p-0.5">
+            {cases.map((c, i) => (
+              <button key={i} onClick={() => setActive(i)}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold transition-colors ${
+                  active === i ? "bg-[#4DD8C9] text-[#0B141C]" : "text-[#8FA3B3] hover:text-[#E6EEF2]"}`}>
+                {caseLabel(i)}
+                {caseFilled(c) && <span className={`w-1.5 h-1.5 rounded-full ${active === i ? "bg-[#0B141C]" : "bg-[#4DD8C9]"}`} />}
+              </button>
+            ))}
+          </div>
+          <span className="text-[9px] text-[#56707F] leading-snug">Two cases side by side · cleared when the app closes</span>
+        </div>
+
+        {/* Share panel */}
+        {showShare && (
+          <div className="fixed inset-0 z-50 bg-black/70 flex items-start sm:items-center justify-center p-3 overflow-y-auto">
+            <div className="bg-[#101D29] border border-[#1F3645] rounded-xl w-full max-w-2xl my-4">
+              <div className="flex items-center justify-between px-3.5 py-3 border-b border-[#1F3645]">
+                <span className="flex items-center gap-2 text-[11px] font-bold text-[#E6EEF2] uppercase tracking-wide">
+                  <Share2 size={13} className="text-[#7CD992]" />Share brief · {caseLabel(active)}
+                </span>
+                <button onClick={() => setShowShare(false)} aria-label="Close" className="text-[#8FA3B3] hover:text-[#E6EEF2]">
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="p-3.5">
+                <div className="flex items-start gap-2 bg-[#0e1d15] border border-[#2d5a3d] rounded-lg px-2.5 py-2 mb-2.5">
+                  <Shield size={12} className="text-[#7CD992] flex-shrink-0 mt-0.5" />
+                  <span className="text-[9.5px] text-[#B8F0C8] leading-snug">
+                    De-identified by construction — the app never collects a name, MRN, or date of birth, so none can appear here.
+                    Paste into the medical record; do not send over unsecured channels.
+                  </span>
+                </div>
+                <textarea id="brief-text" readOnly value={briefText}
+                  className="w-full h-72 bg-[#0E1A24] border border-[#27404F] rounded-md p-2.5 font-mono text-[10px] leading-relaxed text-[#C9D6DE] focus:outline-none focus:border-[#4DD8C9]" />
+                <div className="flex flex-wrap gap-2 mt-2.5">
+                  <button onClick={copyBrief}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#4DD8C9] text-[#0B141C] text-[11px] font-bold">
+                    <Copy size={12} />{copied === "done" ? "Copied ✓" : copied === "fail" ? "Select & copy manually" : "Copy text"}
+                  </button>
+                  <button onClick={shareBrief}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#101D29] border border-[#27404F] text-[#C9D6DE] text-[11px] font-bold hover:border-[#4DD8C9]">
+                    <Share2 size={12} />Share / save file
+                  </button>
+                  <button onClick={() => window.print()}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#101D29] border border-[#27404F] text-[#C9D6DE] text-[11px] font-bold hover:border-[#4DD8C9]">
+                    <BookOpen size={12} />Print / save PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Print / PDF view ──
+            A laid-out one-pager for the anesthesia record and the wall of the
+            room: big numbers, red flags first, checkboxes against the actions
+            that have to happen before induction. Screen-hidden; print-only. */}
+        <div className="brief-print" aria-hidden="true">
+          <div className="bp-head">
+            <div className="bp-headleft">
+              <div className="bp-title">MELD+ · Perioperative Risk Brief</div>
+              <div className="bp-sub">Liver transplant anesthesia · clinical decision support</div>
+              <div className="bp-meta">
+                <strong>{caseLabel(active)}</strong> · {new Date().toLocaleString()}
+                <span className="bp-noid"> · no identifiers auto-filled</span>
+              </div>
+            </div>
+            {/* Blank box for the addressograph / patient label, applied by hand
+                after printing. The app never captures identifiers itself. */}
+            <div className="bp-sticker">
+              <span className="bp-sticker-cap">Patient label</span>
+            </div>
+          </div>
+
+          {implausible.length > 0 && (
+            <div className="bp-warn">⚠ {implausible.length} entered value{implausible.length === 1 ? " is" : "s are"} outside the expected range — verify before use.</div>
+          )}
+
+          <div className="bp-scores">
+            {[
+              ["MELD 3.0", m3 ?? "—", m3 !== null ? `${t3.label} risk` : "incomplete"],
+              ["MELD-Na", mNa ?? "—", m3 !== null && mNa !== null ? `Δ ${m3 - mNa > 0 ? "+" : ""}${m3 - mNa}` : ""],
+              ["Child-Pugh", ctp?.cls ?? "—", ctp ? `${ctp.pts} pts · 1-yr ${ctp.surv1y}` : ""],
+              ["90-day surv.", m3 !== null ? `${survival90(m3).toFixed(0)}%` : "—", m3 !== null ? `3-mo mort. ${mortality3mo(m3)}` : ""],
+              ["Composite", composite ? composite.pts : "—", composite ? `${composite.tier.label} · heuristic` : ""],
+            ].map(([k, val, sub]) => (
+              <div className="bp-score" key={k}>
+                <div className="bp-score-k">{k}</div>
+                <div className="bp-score-v">{val}</div>
+                <div className="bp-score-s">{sub}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="bp-inputs">
+            {[
+              v.age !== null ? `${v.age} y` : null, f.sex === "female" ? "F" : "M",
+              metab.bmi !== null ? `BMI ${metab.bmi.toFixed(1)}` : null,
+              f.smoke !== "never" ? `${f.smoke} smoker${metab.packYears !== null ? ` ${metab.packYears.toFixed(0)} py` : ""}` : null,
+              v.bili !== null ? `bili ${v.bili}` : null, v.inr !== null ? `INR ${v.inr}` : null,
+              v.creat !== null ? `creat ${v.creat}` : null, v.na !== null ? `Na ${v.na}` : null,
+              v.alb !== null ? `alb ${v.alb}` : null, v.hgb !== null ? `Hgb ${v.hgb}` : null,
+              v.plts !== null ? `plt ${v.plts}k` : null, v.fib !== null ? `fib ${v.fib}` : null,
+              v.ef !== null ? `EF ${v.ef}%` : null, v.rvsp !== null ? `RVSP ${v.rvsp}` : null,
+              v.rhcMPAP !== null ? `mPAP ${v.rhcMPAP}` : null, v.rhcPVR !== null ? `PVR ${v.rhcPVR} WU` : null,
+              frailty ? `LFI ${v.lfi} (${frailty.label})` : null,
+            ].filter(Boolean).join("  ·  ")}
+          </div>
+
+          <div className="bp-sec bp-flags">
+            <div className="bp-sec-h">Red flags ({flags.length})</div>
+            {flags.length === 0 ? <div className="bp-line">None from current inputs.</div>
+              : flags.map((r, i) => (
+                <div className="bp-line" key={i}>
+                  <span className={`bp-tag ${r.l === "high" ? "hi" : "md"}`}>{r.l === "high" ? "HIGH" : "MED"}</span>{r.t}
+                </div>
+              ))}
+          </div>
+
+          <div className="bp-cols">
+            <div className="bp-col">
+              <div className="bp-sec">
+                <div className="bp-sec-h">Intraoperative CRRT</div>
+                <div className="bp-verdict">{crrt.met.length > 0 ? `INDICATED — ${crrt.met.length} criteri${crrt.met.length === 1 ? "on" : "a"} met`
+                  : crrt.antic.length > 0 ? "ANTICIPATE — prime the circuit" : "No criteria met"}</div>
+                {crrt.met.map((c, i) => <div className="bp-line" key={i}>☐ {c.t}</div>)}
+                {crrt.antic.length > 0 && <div className="bp-line">Anticipate: {crrt.antic.join(" · ")}</div>}
+                {crrt.met.length > 0 && <div className="bp-line">☐ Nephrology + perfusion notified · warm all CRRT fluids</div>}
+              </div>
+
+              {naProt && (
+                <div className="bp-sec">
+                  <div className="bp-sec-h">Sodium protocol · Na⁺ {v.na} ({naProt.tier.label})</div>
+                  <div className="bp-line"><strong>Intraoperative ceiling ≤6 mmol/L per 24 h</strong> (preop 4–8/day, 4–6 if ODS risk; postop 4–6/day)</div>
+                  {naProt.odsRisk.length > 0 && <div className="bp-line">ODS risk: {naProt.odsRisk.join(" · ")}</div>}
+                  <div className="bp-line">☐ Na⁺ q1–2 h and after large transfusions</div>
+                  <div className="bp-line">☐ Low-sodium CRRT (119–126 mmol/L), not standard 140</div>
+                  <div className="bp-line">☐ Hypotonic carriers · limit Na-rich products (FFP ~172) · factor concentrates</div>
+                  <div className="bp-line">☐ THAM not bicarbonate · DDAVP + free water if Na⁺ climbs too fast</div>
+                </div>
+              )}
+            </div>
+
+            <div className="bp-col">
+              {ph?.active && (
+                <div className="bp-sec">
+                  <div className="bp-sec-h">Pulmonary hypertension{ph.sev ? ` · ${ph.sev.label}` : ""}</div>
+                  {ph.pattern && <div className="bp-line">{ph.pattern}</div>}
+                  {ph.candidacy && <div className="bp-line">{ph.candidacy.text}</div>}
+                  <div className="bp-line">☐ PA catheter + TEE</div>
+                  <div className="bp-line">☐ Inhaled NO 20–40 ppm or inhaled epoprostenol <strong>checked and in the room</strong></div>
+                  <div className="bp-line">☐ IV/SC prostacyclin continued uninterrupted</div>
+                  <div className="bp-line">☐ Milrinone or dobutamine drawn up (RV support)</div>
+                  <div className="bp-line">☐ Norepinephrine / vasopressin / epinephrine ready</div>
+                  <div className="bp-line">☐ VA-ECMO capability identified before induction</div>
+                  <div className="bp-line">Avoid hypoxaemia · hypercarbia · acidosis · hypothermia · high airway pressures</div>
+                </div>
+              )}
+
+              {(() => {
+                const pts = [];
+                if (v.tegLY30 !== null && v.tegLY30 > 3) pts.push(`Hyperfibrinolysis LY30 ${v.tegLY30}% — TXA 1 g IV`);
+                if ((v.plts !== null && v.plts < 80) || (v.inr !== null && v.inr > 1.5)) pts.push("Regional deferred — ASRA thresholds not met");
+                if (f.lvoto) pts.push("LVOTO — fluids + phenylephrine; no dobutamine");
+                if (f.dcd) pts.push("DCD graft — higher post-reperfusion syndrome risk");
+                if (f.hps) pts.push("HPS — Trendelenburg → inhaled epoprostenol/NO → methylene blue → ECMO");
+                if (f.opioid) pts.push("Opioid tolerance — continue MOUD; ketamine / dexmedetomidine");
+                if (f.varices) pts.push("Variceal bleed history — crossmatch ≥4 U pRBC, MTP available");
+                if (efLow) pts.push(`LVEF ${v.ef}% — invasive haemodynamic monitoring`);
+                return pts.length ? (
+                  <div className="bp-sec">
+                    <div className="bp-sec-h">Other key plan points</div>
+                    {pts.map((p, i) => <div className="bp-line" key={i}>☐ {p}</div>)}
+                  </div>
+                ) : null;
+              })()}
+
+              {(unos.length > 0 || milan) && (
+                <div className="bp-sec">
+                  <div className="bp-sec-h">Allocation</div>
+                  {unos.map((n, i) => <div className="bp-line" key={i}><strong>{n.t}</strong></div>)}
+                  {milan && <div className="bp-line">{milan.text}</div>}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="bp-foot">
+            MELD+ is clinical decision support for licensed clinicians. It does not diagnose, prescribe, or replace clinical judgment,
+            institutional protocol, or current OPTN policy. Composite risk is a heuristic, not an allocation score. Verify allocation
+            questions at optn.transplant.hrsa.gov. The app stores and transmits nothing — but once a patient label is applied, this
+            sheet carries identifiers: file it in the record or dispose of it per your institution's policy.
+          </div>
+        </div>
+
+        <style>{`
+          .brief-print { display: none; }
+          @media print {
+            @page { size: A4 portrait; margin: 10mm; }
+            body * { visibility: hidden !important; }
+            .brief-print, .brief-print * { visibility: visible !important; }
+            .brief-print {
+              display: block !important; position: absolute; left: 0; top: 0; width: 100%;
+              color: #000; background: #fff;
+              font-family: -apple-system, "Helvetica Neue", Arial, sans-serif;
+              font-size: 9pt; line-height: 1.35;
+            }
+            .bp-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8pt;
+              border-bottom: 2pt solid #000; padding-bottom: 4pt; margin-bottom: 6pt; }
+            .bp-headleft { flex: 1; }
+            .bp-title { font-size: 15pt; font-weight: 800; letter-spacing: -0.2pt; }
+            .bp-sub { font-size: 8pt; color: #444; }
+            .bp-meta { font-size: 8pt; margin-top: 2pt; }
+            .bp-noid { color: #444; font-style: italic; }
+            /* Addressograph / patient label area — sized for a standard
+               4in x 1.25in hospital label with room to spare. */
+            .bp-sticker { width: 78mm; height: 30mm; border: 0.75pt dashed #555;
+              position: relative; flex: none; }
+            .bp-sticker-cap { position: absolute; top: 1.5pt; left: 3pt;
+              font-size: 6.5pt; color: #888; text-transform: uppercase; letter-spacing: 0.4pt; }
+            .bp-warn { border: 1pt solid #000; background: #f2f2f2; padding: 3pt 5pt;
+              font-weight: 700; font-size: 8.5pt; margin-bottom: 5pt; }
+            .bp-scores { display: flex; gap: 4pt; margin-bottom: 5pt; }
+            .bp-score { flex: 1; border: 1pt solid #000; padding: 3pt 4pt; text-align: center; }
+            .bp-score-k { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.3pt; color: #333; }
+            .bp-score-v { font-size: 19pt; font-weight: 800; line-height: 1.05; }
+            .bp-score-s { font-size: 7pt; color: #333; }
+            .bp-inputs { font-size: 8pt; border-bottom: 0.5pt solid #999; padding-bottom: 4pt; margin-bottom: 6pt; }
+            .bp-sec { margin-bottom: 6pt; break-inside: avoid; }
+            .bp-sec-h { font-size: 8.5pt; font-weight: 800; text-transform: uppercase;
+              letter-spacing: 0.3pt; border-bottom: 0.75pt solid #000; margin-bottom: 3pt; padding-bottom: 1pt; }
+            .bp-flags { border: 1.5pt solid #000; padding: 4pt 5pt; }
+            .bp-flags .bp-sec-h { border-bottom: none; margin-bottom: 2pt; }
+            .bp-line { font-size: 8.5pt; margin-bottom: 2pt; }
+            .bp-tag { display: inline-block; min-width: 26pt; text-align: center; font-size: 7pt;
+              font-weight: 800; border: 0.75pt solid #000; padding: 0 2pt; margin-right: 4pt; }
+            .bp-tag.hi { background: #000; color: #fff; }
+            .bp-verdict { font-weight: 800; font-size: 9.5pt; margin-bottom: 2pt; }
+            .bp-cols { display: flex; gap: 10pt; align-items: flex-start; }
+            .bp-col { flex: 1; }
+            .bp-foot { margin-top: 6pt; padding-top: 3pt; border-top: 0.5pt solid #999;
+              font-size: 6.5pt; color: #333; line-height: 1.3; }
+          }
+        `}</style>
 
         {/* Tabs */}
         <div className="flex gap-1 mb-4 overflow-x-auto pb-1 -mx-1 px-1">
@@ -599,12 +1212,12 @@ export default function App() {
             <Card>
               <Sec icon={Activity} label="Demographics & Body Habitus" color="#C9A8FF" />
               <div className="grid grid-cols-2 gap-2.5">
-                <Field label="Age (yrs)"><NIn placeholder="58" value={f.age} onChange={set("age")} /></Field>
+                <NumField label="Age (yrs)" placeholder="58" value={f.age} onChange={set("age")} fieldKey="age" />
                 <Field label="Sex (for MELD 3.0)">
                   <Sel value={f.sex} onChange={set("sex")} options={[["male", "Male"], ["female", "Female"]]} />
                 </Field>
-                <Field label="Height (cm)"><NIn placeholder="175" value={f.heightCm} onChange={set("heightCm")} /></Field>
-                <Field label="Weight (kg)"><NIn placeholder="82" value={f.weightKg} onChange={set("weightKg")} /></Field>
+                <NumField label="Height (cm)" placeholder="175" value={f.heightCm} onChange={set("heightCm")} fieldKey="heightCm" />
+                <NumField label="Weight (kg)" placeholder="82" value={f.weightKg} onChange={set("weightKg")} fieldKey="weightKg" />
               </div>
               {metab.bmi !== null && (
                 <div className="mt-2 flex items-center justify-between bg-[#0E1A24] border border-[#1a2e40] rounded-md px-2.5 py-1.5">
@@ -621,9 +1234,9 @@ export default function App() {
               </div>
               {f.smoke !== "never" && (
                 <div className="grid grid-cols-2 gap-2.5 mt-2">
-                  <Field label="Cigarettes / day"><NIn placeholder="20" value={f.cigsDay} onChange={set("cigsDay")} /></Field>
-                  <Field label="Years smoked"><NIn placeholder="25" value={f.smokeYears} onChange={set("smokeYears")} /></Field>
-                  {f.smoke === "former" && <Field label="Years since quit"><NIn placeholder="3" value={f.quitYears} onChange={set("quitYears")} /></Field>}
+                  <NumField label="Cigarettes / day" placeholder="20" value={f.cigsDay} onChange={set("cigsDay")} fieldKey="cigsDay" />
+                  <NumField label="Years smoked" placeholder="25" value={f.smokeYears} onChange={set("smokeYears")} fieldKey="smokeYears" />
+                  {f.smoke === "former" && <NumField label="Years since quit" placeholder="3" value={f.quitYears} onChange={set("quitYears")} fieldKey="quitYears" />}
                 </div>
               )}
               {metab.packYears !== null && (
@@ -648,79 +1261,122 @@ export default function App() {
             </Card>
 
             <Card>
-              <Sec icon={Activity} label="Labs & Renal" color="#4DD8C9" />
+              <Sec icon={Waves} label="Labs, Renal & CRRT" color="#4DD8C9" />
+
+              <div className="text-[9px] font-bold uppercase tracking-wider text-[#8FA3B3] mb-1.5">Blood counts</div>
+              <div className="grid grid-cols-3 gap-2.5">
+                <NumField label="Hemoglobin (g/dL)" placeholder="10.5" value={f.hgb} onChange={set("hgb")} fieldKey="hgb" />
+                <NumField label="Platelets (×10³/µL)" placeholder="80" value={f.plts} onChange={set("plts")} fieldKey="plts" />
+                <NumField label="Fibrinogen (mg/dL)" placeholder="150" value={f.fib} onChange={set("fib")} fieldKey="fib" />
+              </div>
+
+              <div className="text-[9px] font-bold uppercase tracking-wider text-[#8FA3B3] mb-1.5 mt-3">Renal & MELD labs</div>
+              <p className="text-[9px] text-[#56707F] mb-1.5 leading-relaxed">MELD 3.0, MELD-Na and Child-Pugh all use serum <strong className="text-[#8FA3B3]">total</strong> bilirubin — not direct / conjugated.</p>
               <div className="grid grid-cols-2 gap-2.5">
-                <Field label="Bilirubin (mg/dL)"><NIn placeholder="2.1" value={f.bili} onChange={set("bili")} /></Field>
-                <Field label="INR"><NIn placeholder="1.4" value={f.inr} onChange={set("inr")} /></Field>
-                <Field label="Creatinine (mg/dL)"><NIn placeholder="1.0" value={f.creat} onChange={set("creat")} /></Field>
-                <Field label="Sodium (mmol/L)"><NIn placeholder="136" value={f.na} onChange={set("na")} /></Field>
-                <Field label="Albumin (g/dL)"><NIn placeholder="3.2" value={f.alb} onChange={set("alb")} /></Field>
-                <Field label="SpO₂ room air (%)"><NIn placeholder="97" value={f.spo2} onChange={set("spo2")} /></Field>
+                <NumField label="Total bilirubin (mg/dL)" placeholder="2.1" value={f.bili} onChange={set("bili")} fieldKey="bili" />
+                <NumField label="INR" placeholder="1.4" value={f.inr} onChange={set("inr")} fieldKey="inr" />
+                <NumField label="Creatinine (mg/dL)" placeholder="1.0" value={f.creat} onChange={set("creat")} fieldKey="creat" />
+                <NumField label="Sodium (mmol/L)" placeholder="136" value={f.na} onChange={set("na")} fieldKey="na" />
+                <NumField label="Albumin (g/dL)" placeholder="3.2" value={f.alb} onChange={set("alb")} fieldKey="alb" />
+                <NumField label="SpO₂ room air (%)" placeholder="97" value={f.spo2} onChange={set("spo2")} fieldKey="spo2" />
               </div>
-              <div className="mt-2">
-                <Chk label="Dialysis ≥2× in past 7 days, or CVVHD ≥24 h" sub="Sets creatinine to 3.0 (MELD 3.0) / 4.0 (MELD-Na)" checked={f.dialysis} onChange={set("dialysis")} />
-                <Chk label="Active AKI" checked={f.aki} onChange={set("aki")} />
-              </div>
-            </Card>
 
-            <Card>
-              <Sec icon={Waves} label="Metabolic / CRRT Inputs" color="#7CC4FF" />
+              <div className="text-[9px] font-bold uppercase tracking-wider text-[#8FA3B3] mb-1 mt-3">Dialysis / CRRT status</div>
+              <Chk label="Dialysis ≥2× in past 7 days, or CVVHD ≥24 h" sub="Sets creatinine to 3.0 (MELD 3.0) / 4.0 (MELD-Na)" checked={f.dialysis} onChange={set("dialysis")} />
+              <Chk label="Already on CRRT pre-transplant" sub="Continue intraoperatively — do not interrupt" checked={f.preopCRRT} onChange={set("preopCRRT")} />
+              <Chk label="Active AKI" checked={f.aki} onChange={set("aki")} />
+
+              <div className="text-[9px] font-bold uppercase tracking-wider text-[#8FA3B3] mb-1.5 mt-3">Metabolic / CRRT inputs</div>
               <div className="grid grid-cols-2 gap-2.5">
-                <Field label="Potassium (mmol/L)"><NIn placeholder="4.2" value={f.k} onChange={set("k")} /></Field>
-                <Field label="pH"><NIn placeholder="7.35" value={f.ph} onChange={set("ph")} /></Field>
-                <Field label="HCO₃ (mmol/L)"><NIn placeholder="22" value={f.hco3} onChange={set("hco3")} /></Field>
-                <Field label="Lactate (mmol/L)"><NIn placeholder="2.0" value={f.lactate} onChange={set("lactate")} /></Field>
-                <Field label="CVP (mmHg)"><NIn placeholder="12" value={f.cvp} onChange={set("cvp")} /></Field>
-                <Field label="UOP (mL/kg/hr)"><NIn placeholder="0.8" value={f.uop} onChange={set("uop")} /></Field>
+                <NumField label="Potassium (mmol/L)" placeholder="4.2" value={f.k} onChange={set("k")} fieldKey="k" />
+                <NumField label="pH" placeholder="7.35" value={f.ph} onChange={set("ph")} fieldKey="ph" />
+                <NumField label="HCO₃ (mmol/L)" placeholder="22" value={f.hco3} onChange={set("hco3")} fieldKey="hco3" />
+                <NumField label="Lactate (mmol/L)" placeholder="2.0" value={f.lactate} onChange={set("lactate")} fieldKey="lactate" />
+                <NumField label="CVP (mmHg)" placeholder="12" value={f.cvp} onChange={set("cvp")} fieldKey="cvp" />
+                <NumField label="UOP (mL/kg/hr)" placeholder="0.8" value={f.uop} onChange={set("uop")} fieldKey="uop" />
               </div>
-              <div className="mt-2">
-                <Chk label="Already on CRRT pre-transplant" checked={f.preopCRRT} onChange={set("preopCRRT")} />
-              </div>
-            </Card>
-
-            <Card>
-              <Sec icon={Heart} label="Cardiac" color="#FF9A5A" />
-              <Chk label="Known CAD / prior MI / PCI" checked={f.cad} onChange={set("cad")} />
-              <Chk label="Reduced LVEF (<55%)" checked={f.lowEF} onChange={set("lowEF")} />
-              <Chk label="LVOTO on echo" sub="Fluids + phenylephrine — not inotropes" checked={f.lvoto} onChange={set("lvoto")} />
-              <Chk label="Exertional dyspnea / chest pain" checked={f.exert} onChange={set("exert")} />
-              <Chk label="Diabetes mellitus" checked={f.dm} onChange={set("dm")} />
-              <Chk label="Atrial fibrillation" checked={f.afib} onChange={set("afib")} />
-            </Card>
-
-            <Card>
-              <Sec icon={Wind} label="Pulmonary" color="#7CC4FF" />
-              <Chk label="Platypnea-orthodeoxia / spider angiomata + dyspnea" sub="Screens for HPS — bubble echo indicated" checked={f.hps} onChange={set("hps")} />
-              <Chk label="Elevated RVSP / PASP on echo" sub="RHC required before listing" checked={f.poph} onChange={set("poph")} />
             </Card>
 
             <Card>
               <Sec icon={Wind} label="Pulmonary Function (PFT)" color="#4DD8C9" />
               <p className="text-[9.5px] text-[#56707F] mb-2 leading-relaxed">Enter % predicted (and FEV₁/FVC ratio). Drives the predicted post-transplant respiratory course on the Scores tab.</p>
               <div className="grid grid-cols-2 gap-2.5">
-                <Field label="FEV₁ (% pred)"><NIn placeholder="85" value={f.fev1pp} onChange={set("fev1pp")} /></Field>
-                <Field label="FVC (% pred)"><NIn placeholder="88" value={f.fvcpp} onChange={set("fvcpp")} /></Field>
-                <Field label="FEV₁/FVC (%)"><NIn placeholder="78" value={f.fev1fvc} onChange={set("fev1fvc")} /></Field>
-                <Field label="DLCO (% pred)"><NIn placeholder="72" value={f.dlcopp} onChange={set("dlcopp")} /></Field>
-                <Field label="TLC (% pred)"><NIn placeholder="90" value={f.tlcpp} onChange={set("tlcpp")} /></Field>
+                <NumField label="FEV₁ (% pred)" placeholder="85" value={f.fev1pp} onChange={set("fev1pp")} fieldKey="fev1pp" />
+                <NumField label="FVC (% pred)" placeholder="88" value={f.fvcpp} onChange={set("fvcpp")} fieldKey="fvcpp" />
+                <NumField label="FEV₁/FVC (%)" placeholder="78" value={f.fev1fvc} onChange={set("fev1fvc")} fieldKey="fev1fvc" />
+                <NumField label="DLCO (% pred)" placeholder="72" value={f.dlcopp} onChange={set("dlcopp")} fieldKey="dlcopp" />
+                <NumField label="TLC (% pred)" placeholder="90" value={f.tlcpp} onChange={set("tlcpp")} fieldKey="tlcpp" />
               </div>
             </Card>
 
             <Card>
-              <Sec icon={Activity} label="Frailty (Liver Frailty Index)" color="#C9A8FF" />
-              <div className="grid grid-cols-2 gap-2.5 items-end">
-                <Field label="LFI score"><NIn placeholder="3.8" value={f.lfi} onChange={set("lfi")} /></Field>
-                {frailty && (
-                  <div className="flex items-center justify-between bg-[#0E1A24] border border-[#1a2e40] rounded-md px-2.5 py-2">
-                    <span className="text-[10px] uppercase tracking-wide text-[#8FA3B3]">Category</span>
-                    <span className="text-[13px] font-bold" style={{ color: frailty.c }}>{frailty.label}</span>
-                  </div>
-                )}
+              <Sec icon={Heart} label="Cardiac" color="#FF9A5A" />
+              <div className="grid grid-cols-2 gap-2.5">
+                <NumField label="LVEF (%)" placeholder="60" value={f.ef} onChange={set("ef")} fieldKey="ef" />
+                <NumField label="RVSP on echo (mmHg)" placeholder="32" value={f.rvsp} onChange={set("rvsp")} fieldKey="rvsp" />
               </div>
-              <p className="text-[9.5px] text-[#56707F] mt-2 leading-relaxed">
-                Score from the validated Liver Frailty Index (grip strength, time for 5 chair stands, 3-position balance). Robust &lt;3.2 · Pre-frail 3.2–4.4 · Frail ≥4.5.
-                <a href="https://liverfrailtyindex.ucsf.edu" target="_blank" rel="noopener noreferrer" className="text-[#7CC4FF] underline ml-1">Open calculator</a>
+              {v.ef !== null && (
+                <div className="mt-2 flex items-center justify-between bg-[#0E1A24] border border-[#1a2e40] rounded-md px-2.5 py-1.5">
+                  <span className="text-[10px] uppercase tracking-wide text-[#8FA3B3]">LVEF</span>
+                  <span className="text-[12px] font-bold" style={{ color: efLow ? "#FF6B6B" : "#7CD992" }}>
+                    {efLow ? "Reduced (<55%)" : "Preserved (≥55%)"}
+                  </span>
+                </div>
+              )}
+              {v.rvsp !== null && v.rvsp > 40 && (
+                <div className="mt-2">
+                  <Flag level="med" text={`RVSP ${v.rvsp} mmHg (>40) — ILTS 2026 advises pulmonary hypertension expert consultation ± right heart catheterization. More than mild RV dilation or dysfunction on echo prompts the same referral.`} />
+                </div>
+              )}
+              <div className="mt-2">
+                <Chk label="Known CAD / prior MI / PCI" checked={f.cad} onChange={set("cad")} />
+                <Chk label="LVOTO on echo" sub="Fluids + phenylephrine — not inotropes" checked={f.lvoto} onChange={set("lvoto")} />
+                <Chk label="Exertional dyspnea / chest pain" checked={f.exert} onChange={set("exert")} />
+                <Chk label="Diabetes mellitus" checked={f.dm} onChange={set("dm")} />
+                <Chk label="Atrial fibrillation" checked={f.afib} onChange={set("afib")} />
+              </div>
+            </Card>
+
+            <Card>
+              <Sec icon={Waves} label="Right Heart Catheterization" color="#7CC4FF" />
+              <p className="text-[9.5px] text-[#56707F] mb-2 leading-relaxed">
+                Enter measured RHC values when echo RVSP is elevated (&gt;40 mmHg per ILTS 2026) or POPH is suspected.
               </p>
+              <div className="grid grid-cols-2 gap-2.5">
+                <NumField label="Cardiac output (L/min)" placeholder="5.5" value={f.rhcCO} onChange={set("rhcCO")} fieldKey="rhcCO" />
+                <NumField label="Cardiac index (L/min/m²)" placeholder="3.0" value={f.rhcCI} onChange={set("rhcCI")} fieldKey="rhcCI" />
+                <NumField label="Mean PAP (mmHg)" placeholder="22" value={f.rhcMPAP} onChange={set("rhcMPAP")} fieldKey="rhcMPAP" />
+                <NumField label="PAWP / wedge (mmHg)" placeholder="10" value={f.rhcPAWP} onChange={set("rhcPAWP")} fieldKey="rhcPAWP" />
+                <NumField label="PVR (Wood units)" placeholder="2.2" value={f.rhcPVR} onChange={set("rhcPVR")} fieldKey="rhcPVR" />
+              </div>
+              {v.rhcPVR !== null && (
+                <div className="mt-2 flex items-center justify-between bg-[#0E1A24] border border-[#1a2e40] rounded-md px-2.5 py-1.5">
+                  <span className="text-[10px] uppercase tracking-wide text-[#8FA3B3]">PVR converted</span>
+                  <span className="font-mono text-[12px] text-[#C9D6DE]">{v.rhcPVR} WU = {(v.rhcPVR * 80).toFixed(0)} dyn·s·cm⁻⁵</span>
+                </div>
+              )}
+              {ph?.hasRHC && (
+                <div className="mt-2 space-y-2">
+                  <div className="flex items-center justify-between bg-[#0E1A24] border border-[#1a2e40] rounded-md px-2.5 py-1.5">
+                    <span className="text-[10px] uppercase tracking-wide text-[#8FA3B3]">Severity (ILTS)</span>
+                    <span className="text-[12px] font-bold" style={{ color: ph.sev.c }}>{ph.sev.label}</span>
+                  </div>
+                  {ph.pattern && <Flag level={ph.poph ? "high" : "info"} text={ph.pattern} />}
+                  {ph.candidacy && <Flag level={ph.candidacy.lvl} text={ph.candidacy.text} />}
+                </div>
+              )}
+              <Formula
+                name="Pulmonary hypertension — RHC definitions (ESC/ERS, adopted by ILTS)"
+                body={"PH                      mPAP >20 mmHg\nPrecapillary (POPH)     mPAP >20 · PAWP ≤15 · PVR >2 WU\nIsolated postcapillary  mPAP >20 · PAWP >15 · PVR ≤2 WU\nCombined pre/post       mPAP >20 · PAWP >15 · PVR >2 WU\n\nSeverity   mild 20<mPAP<35 · moderate 35≤mPAP<45 · severe mPAP≥45\nLT         considered at mPAP <35, or mPAP 35–45 with PVR <3 WU\nAbsolute contraindication:  mPAP >45–50 · PVR >5 WU · severe RV dysfunction\n\n1 Wood unit = 80 dyn·s·cm⁻⁵.  Cardiac index = cardiac output ÷ BSA."}
+                refText="ILTS practice guideline update on portopulmonary hypertension. Liver Transpl 2026;32:296–314"
+                refUrl={PM("International Liver Transplantation Society practice guideline update on portopulmonary hypertension DuBrock 2025")}
+              />
+            </Card>
+
+            <Card>
+              <Sec icon={Wind} label="Pulmonary" color="#7CC4FF" />
+              <Chk label="Platypnea-orthodeoxia / spider angiomata + dyspnea" sub="Screens for HPS — bubble echo indicated" checked={f.hps} onChange={set("hps")} />
+              <Chk label="Elevated RVSP / PASP on echo" sub="RHC required before listing" checked={f.poph} onChange={set("poph")} />
             </Card>
 
             <Card>
@@ -733,13 +1389,12 @@ export default function App() {
                   <Sel value={f.enceph} onChange={set("enceph")} options={[["none", "None"], ["12", "Grade 1–2"], ["34", "Grade 3–4"]]} />
                 </Field>
               </div>
-              <div className="grid grid-cols-2 gap-2.5">
-                <Field label="Platelets (×10³/µL)"><NIn placeholder="80" value={f.plts} onChange={set("plts")} /></Field>
-                <Field label="Fibrinogen (mg/dL)"><NIn placeholder="150" value={f.fib} onChange={set("fib")} /></Field>
-                <Field label="TEG R (min)"><NIn placeholder="6" value={f.tegR} onChange={set("tegR")} /></Field>
-                <Field label="TEG MA (mm)"><NIn placeholder="55" value={f.tegMA} onChange={set("tegMA")} /></Field>
-                <Field label="TEG LY30 (%)"><NIn placeholder="1" value={f.tegLY30} onChange={set("tegLY30")} /></Field>
+              <div className="grid grid-cols-3 gap-2.5">
+                <NumField label="TEG R (min)" placeholder="6" value={f.tegR} onChange={set("tegR")} fieldKey="tegR" />
+                <NumField label="TEG MA (mm)" placeholder="55" value={f.tegMA} onChange={set("tegMA")} fieldKey="tegMA" />
+                <NumField label="TEG LY30 (%)" placeholder="1" value={f.tegLY30} onChange={set("tegLY30")} fieldKey="tegLY30" />
               </div>
+              <p className="text-[9px] text-[#56707F] mt-2 leading-relaxed">Platelets and fibrinogen are entered under Labs, Renal &amp; CRRT.</p>
               <div className="mt-2">
                 <Chk label="History of variceal bleed" checked={f.varices} onChange={set("varices")} />
               </div>
@@ -748,10 +1403,43 @@ export default function App() {
             <Card>
               <Sec icon={ListChecks} label="Listing & Surgical" color="#C9A8FF" />
               <Chk label="Acute liver failure (fulminant)" sub="Assess for Status 1A eligibility" checked={f.alf} onChange={set("alf")} />
-              <Chk label="Hepatocellular carcinoma" sub="Assess for Milan/T2 exception pathway" checked={f.hcc} onChange={set("hcc")} />
+              <Chk label="Hepatocellular carcinoma" sub="Open the Milan / T2 exception check below" checked={f.hcc} onChange={set("hcc")} />
               <Chk label="DCD allograft" sub="Higher post-reperfusion syndrome risk" checked={f.dcd} onChange={set("dcd")} />
               <Chk label="Chronic opioid use / tolerance" checked={f.opioid} onChange={set("opioid")} />
             </Card>
+
+            <div className="sm:col-span-2 lg:col-span-3">
+              <Collap title="HCC — Milan / T2 Exception Check" icon={ListChecks} color="#FF9A5A" open={f.hcc}>
+                <p className="text-[10px] text-[#8FA3B3] mb-2 leading-relaxed">
+                  Enter tumour burden to see whether the candidate qualifies for the standard HCC exception pathway.
+                </p>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <Field label="Number of lesions">
+                    <Sel value={f.hccLesions} onChange={set("hccLesions")}
+                      options={[["none", "Select…"], ["1", "1 lesion"], ["23", "2–3 lesions"], ["gt3", "More than 3"]]} />
+                  </Field>
+                  <NumField label="Largest lesion (cm)" placeholder="3.5" value={f.hccLargestCm} onChange={set("hccLargestCm")} fieldKey="hccLargestCm" />
+                </div>
+                <div className="mt-2">
+                  <Chk label="Macrovascular invasion present" checked={f.hccVasc} onChange={set("hccVasc")} />
+                  <Chk label="Extrahepatic spread present" checked={f.hccExtra} onChange={set("hccExtra")} />
+                </div>
+                {milan && (
+                  <div className="mt-2.5">
+                    <Flag level={milan.meets === true ? "ok" : milan.meets === false ? "high" : "info"} text={milan.text} />
+                  </div>
+                )}
+                <Formula
+                  name="Milan / OPTN T2 criteria"
+                  body={"Qualifies if BOTH:\n  • 1 lesion 2–5 cm,  OR  2–3 lesions each 1–3 cm\n  • No macrovascular invasion AND no extrahepatic spread\n\nIf met: mandatory 6-month wait, then the score is set to MMaT − 3\n(it does not add fixed points and does not escalate every 3 months)."}
+                  refText="OPTN/UNOS Policy 9 — standard HCC exception"
+                  refUrl="https://optn.transplant.hrsa.gov/policies-bylaws/policies/"
+                />
+                <p className="text-[9.5px] text-[#56707F] mt-2 leading-relaxed">
+                  Reference material for situational awareness. The transplant programme and the NLRB adjudicate the actual exception request.
+                </p>
+              </Collap>
+            </div>
 
             <div className="sm:col-span-2 lg:col-span-3">
               <Collap title="Portal HTN — TIPS & PVT" icon={Droplet} color="#FF6B6B">
@@ -791,6 +1479,60 @@ export default function App() {
                   />
                 )}
               </Collap>
+            </div>
+
+            <div className="sm:col-span-2 lg:col-span-3">
+              <Card>
+                <Sec icon={Activity} label="Frailty (Liver Frailty Index)" color="#C9A8FF" />
+                <div className="grid sm:grid-cols-2 gap-2.5 items-end">
+                  <NumField label="LFI score" placeholder="3.8" value={f.lfi} onChange={set("lfi")} fieldKey="lfi" />
+                  {frailty && (
+                    <div className="flex items-center justify-between bg-[#0E1A24] border border-[#1a2e40] rounded-md px-2.5 py-2">
+                      <span className="text-[10px] uppercase tracking-wide text-[#8FA3B3]">Category</span>
+                      <span className="text-[13px] font-bold" style={{ color: frailty.c }}>{frailty.label}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2 mt-2.5">
+                  {[["Robust", "< 3.2", "#7CD992"], ["Pre-frail", "3.2 – 4.4", "#FFC857"], ["Frail", "≥ 4.5", "#FF6B6B"]].map(([label, range, c]) => (
+                    <div key={label} className="bg-[#0E1A24] border border-[#1a2e40] rounded-md px-2.5 py-1.5 text-center">
+                      <div className="text-[10px] font-bold" style={{ color: c }}>{label}</div>
+                      <div className="text-[10px] font-mono text-[#8FA3B3] mt-0.5">{range}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="text-[10px] font-bold text-[#E6EEF2] uppercase tracking-wide mt-3 mb-1.5">How to obtain the LFI</div>
+                <p className="text-[10px] text-[#8FA3B3] mb-2 leading-relaxed">
+                  Three bedside performance tests, done in clinic in about five minutes. Measure each, then enter the three raw values into the
+                  validated calculator — it returns the single LFI score you type above.
+                </p>
+                <ul className="space-y-1.5">
+                  <Bul>
+                    <strong className="text-[#C9A8FF]">1 · Grip strength (kg)</strong> — hand-held dynamometer, dominant hand. Patient seated,
+                    elbow at 90°, arm unsupported. Three maximal squeezes with a brief rest between; record the <em>average</em> of the three.
+                  </Bul>
+                  <Bul>
+                    <strong className="text-[#C9A8FF]">2 · Chair stands (seconds)</strong> — standard armless chair, arms folded across the chest.
+                    Time how long it takes to rise fully and sit back down <em>five</em> times. Stop at 60 s if unable to complete.
+                  </Bul>
+                  <Bul>
+                    <strong className="text-[#C9A8FF]">3 · Balance (seconds)</strong> — time held, up to 10 s each, in three foot positions:
+                    side-by-side, semi-tandem (heel beside the big toe), and full tandem (heel directly in front of toe). Sum the three times.
+                  </Bul>
+                </ul>
+                <p className="text-[9.5px] text-[#56707F] mt-2 leading-relaxed">
+                  The LFI equation weights and combines the three measures; it is not a simple sum, so use the calculator rather than estimating.
+                  Repeat at each clinic visit — a rising LFI over time carries prognostic weight of its own.
+                  <a href="https://liverfrailtyindex.ucsf.edu" target="_blank" rel="noopener noreferrer" className="text-[#7CC4FF] underline ml-1">Open the UCSF calculator</a>
+                </p>
+                <Formula
+                  name="Liver Frailty Index"
+                  body={"LFI combines dominant-hand grip strength, 5× chair-stand time, and 3-position\nbalance time into one continuous score.\n\nRobust < 3.2   ·   Pre-frail 3.2 – 4.4   ·   Frail ≥ 4.5\n\nCaptures functional decline that MELD does not, and improves prediction of\nwaitlist mortality over MELD-Na alone."}
+                  refText="Lai JC et al. Hepatology 2017;66:564–574; cut-offs Wang 2021; reproducibility Wang 2019"
+                  refUrl={PM("development of a novel frailty index to predict mortality end-stage liver disease Lai Hepatology 2017")}
+                />
+              </Card>
             </div>
           </div>
         )}
@@ -1062,6 +1804,8 @@ export default function App() {
                   {(v.age >= 50 || f.cad || f.dm || f.exert) && <Bul>Dobutamine stress echo — sensitivity only 25–41% in ESLD; low threshold to proceed to angiography</Bul>}
                   {(f.cad || f.exert) && <Bul>Coronary angiography preferred over DSE alone when CAD is suspected</Bul>}
                   {f.lvoto && <Bul>LVOTO present — avoid dobutamine; hemodynamic plan is fluids + phenylephrine</Bul>}
+                  {efLow && <Bul>LVEF {v.ef}% — reduced systolic function; invasive hemodynamic monitoring and a cardiology review before listing</Bul>}
+                  {v.rvsp !== null && v.rvsp > 40 && <Bul>RVSP {v.rvsp} mmHg (&gt;40) — PH expert consultation ± right heart catheterization; measure mPAP, PAWP, PVR, and cardiac output/index (ILTS 2026)</Bul>}
                   {f.afib && <Bul>AF: rate over rhythm; DOACs preferred over VKA in cirrhosis; avoid amiodarone (hepatotoxic)</Bul>}
                 </ul>
               </Card>
@@ -1071,7 +1815,9 @@ export default function App() {
                   <Bul>Room-air ABG + chest radiograph</Bul>
                   {(f.hps || (v.spo2 !== null && v.spo2 < 96)) && <Bul>Agitated saline contrast (bubble) echo — screen for intrapulmonary shunt</Bul>}
                   {f.hps && <Bul>Tc-99m MAA scan to quantify shunt fraction; shunt &gt;20% with PaO₂ &lt;50 mmHg carries high post-LT mortality</Bul>}
-                  {f.poph && <Bul>Right heart catheterization — mandatory before listing; mPAP &gt;35 with PVR &gt;240 is high risk, mPAP &gt;50 is a contraindication without treatment</Bul>}
+                  {(f.poph || (v.rvsp !== null && v.rvsp > 40)) && <Bul>Right heart catheterization — required before listing. POPH = mPAP &gt;20 mmHg with PAWP ≤15 and PVR &gt;2 WU; mPAP &gt;45–50, PVR &gt;5 WU, or severe RV dysfunction are absolute contraindications (ILTS 2026)</Bul>}
+                  {ph?.active && <Bul><strong className="text-[#7CC4FF]">PH expert consultation</strong> — PAH therapy (PDE5 inhibitor, sGC stimulator, endothelin receptor antagonist, or prostacyclin analogue) to lower mPAP and PVR before transplant; avoid TIPS and beta-blockers in POPH</Bul>}
+                  {v.rhcMPAP !== null && <Bul>RHC recorded: mPAP {v.rhcMPAP} mmHg{v.rhcPAWP !== null ? `, PAWP ${v.rhcPAWP} mmHg` : ""}{v.rhcPVR !== null ? `, PVR ${v.rhcPVR} WU (${(v.rhcPVR * 80).toFixed(0)} dyn·s·cm⁻⁵)` : ""}{v.rhcCO !== null ? `, CO ${v.rhcCO} L/min` : ""}{v.rhcCI !== null ? `, CI ${v.rhcCI} L/min/m²` : ""}</Bul>}
                 </ul>
               </Card>
             </div>
@@ -1164,7 +1910,7 @@ export default function App() {
                   ["Potassium", "0–2 mmol/L"],
                   ["Calcium", "Calcium-free fluid if RCA used + separate IV calcium"],
                   ["Magnesium", "1.5–2.0 mg/dL (0.6–0.8 mmol/L)"],
-                  ["Sodium", "Match baseline — correct ≤8–10 mmol/L/day (ODS risk)"],
+                  ["Sodium", "Match baseline — low-sodium dialysate (119–126 mmol/L) when hyponatremic; limit intraoperative change to ≤6 mmol/L/24 h (ODS risk)"],
                 ].map(([k, val]) => (
                   <div key={k} className="flex gap-2 py-1 border-b border-[#1a2e40] last:border-0">
                     <div className="text-[10px] text-[#8FA3B3] w-[110px] flex-shrink-0 uppercase tracking-wide">{k}</div>
@@ -1323,7 +2069,7 @@ export default function App() {
                 {[
                   ["Hepatocellular carcinoma", "MMaT − 3", "#FF9A5A", "Milan/T2: 1 lesion 2–5 cm, or 2–3 lesions each 1–3 cm, no vascular invasion, no extrahepatic spread. Mandatory 6-month wait, then score set to MMaT − 3. Example: area MMaT 31 → listed at 28."],
                   ["Hepatopulmonary syndrome", "MMaT − 3", "#FF9A5A", "PaO₂ <60 mmHg on room air with documented intrapulmonary shunting."],
-                  ["Portopulmonary hypertension", "MMaT − 3", "#FF9A5A", "mPAP ≥25 at rest, PVR >240 dyn·s·cm⁻⁵, treated to mPAP <35 mmHg."],
+                  ["Portopulmonary hypertension", "MMaT − 3", "#FF9A5A", "Precapillary PH: mPAP >20 mmHg, PAWP ≤15, PVR >2 WU. On PAH therapy, post-treatment mPAP <35 mmHg — or mPAP 35–45 with PVR <3 WU — with serial RHC every 3 months to maintain the exception."],
                   ["Familial amyloid polyneuropathy", "MMaT − 3", "#FF9A5A", "Biopsy-confirmed with a documented TTR mutation."],
                   ["Cystic fibrosis", "MMaT − 3", "#FF9A5A", "FEV₁ <40% predicted or deteriorating pulmonary function."],
                   ["Hilar cholangiocarcinoma", "MMaT − 3", "#FF9A5A", "Enrolled in an approved neoadjuvant protocol; tumor <3 cm."],
@@ -1391,7 +2137,7 @@ export default function App() {
                 <Bul>Balanced crystalloid (Plasmalyte) over normal saline — avoids hyperchloremic acidosis</Bul>
                 <Bul>Albumin 20–25% for volume and oncotic support</Bul>
                 <Bul>THAM 0.3 M for metabolic acidosis when sodium load is a concern; target pH &gt;7.2</Bul>
-                <Bul>Sodium q1–2 h — correct ≤8–10 mmol/L per 24 h to avoid osmotic demyelination</Bul>
+                <Bul>Sodium q1–2 h — limit the intraoperative change to ≤6 mmol/L per 24 h to avoid osmotic demyelination (see the sodium protocol above when Na⁺ &lt;135)</Bul>
                 <Bul>Lactate clearance post-reperfusion is a marker of new graft function</Bul>
               </ul>
             </Collap>
@@ -1411,6 +2157,85 @@ export default function App() {
                 <Bul>Reassess after reperfusion — hepatic clearance resumes rapidly; down-titrate infusions</Bul>
               </ul>
             </Collap>
+
+            {ph?.active && (
+              <Collap title="Pulmonary Hypertension — Intraoperative Management" icon={Wind} color="#FF6B6B" open>
+                <p className="text-[10px] text-[#56707F] mb-2">ILTS practice guideline update on portopulmonary hypertension, Liver Transpl 2026;32:296–314 (Rec 15–17)</p>
+                {ph.sev && (
+                  <div className="mb-2 flex items-center justify-between bg-[#0E1A24] border border-[#1a2e40] rounded-md px-2.5 py-1.5">
+                    <span className="text-[10px] uppercase tracking-wide text-[#8FA3B3]">Severity · mPAP {v.rhcMPAP} mmHg</span>
+                    <span className="text-[12px] font-bold" style={{ color: ph.sev.c }}>{ph.sev.label}</span>
+                  </div>
+                )}
+                <div className="text-[10px] font-bold text-[#E6EEF2] uppercase tracking-wide mb-1">Monitoring</div>
+                <ul className="space-y-1 mb-2.5">
+                  <Bul><strong className="text-[#FF6B6B]">Pulmonary artery catheter</strong> — intraoperative PA catheter haemodynamic monitoring is advised in PH, absent contraindications. Trend mPAP, PVR, CO and transpulmonary gradient through every phase</Bul>
+                  <Bul><strong className="text-[#FF6B6B]">TEE</strong> — complements invasive haemodynamics; assess RV size and function continuously and to detect intraoperative complications</Bul>
+                  <Bul>Arterial line before induction; anticipate that induction and IVC clamping are the points of greatest RV vulnerability</Bul>
+                </ul>
+                <div className="text-[10px] font-bold text-[#E6EEF2] uppercase tracking-wide mb-1">Drugs & equipment in the room before induction</div>
+                <ul className="space-y-1 mb-2.5">
+                  <Bul><strong className="text-[#7CC4FF]">Inhaled nitric oxide 20–40 ppm</strong> or <strong className="text-[#7CC4FF]">inhaled prostacyclin analogue</strong> (epoprostenol) — confirm the circuit, cylinder, and delivery device are physically present and checked before the patient enters the room</Bul>
+                  <Bul><strong className="text-[#7CC4FF]">Continue pre-transplant PAH therapy</strong> — all continuous IV or subcutaneous prostacyclin analogs run uninterrupted throughout the case; oral and inhaled agents resume postoperatively</Bul>
+                  <Bul><strong className="text-[#7CC4FF]">RV inotropy</strong> — milrinone or dobutamine for additional pulmonary vasodilatation and RV inotropic support</Bul>
+                  <Bul><strong className="text-[#7CC4FF]">Vasopressors</strong> — norepinephrine, vasopressin, and epinephrine are the preferred agents to maintain systemic perfusion and coronary pressure to the RV in PAH</Bul>
+                  <Bul><strong className="text-[#FF6B6B]">VA-ECMO</strong> — identify capability and the team before induction; it is the rescue for cardiovascular collapse from acute RV failure. Consider early with decompensation (high bleeding/thrombosis risk — involve haematology and perfusion)</Bul>
+                </ul>
+                <div className="text-[10px] font-bold text-[#E6EEF2] uppercase tracking-wide mb-1">Physiological targets</div>
+                <ul className="space-y-1">
+                  <Bul>Avoid hypoxaemia, hypercarbia, acidosis, hypothermia and high airway pressures — every one of them raises PVR</Bul>
+                  <Bul>Maintain sinus rhythm and preload without volume overloading the RV; treat arrhythmia promptly</Bul>
+                  <Bul>Reperfusion is the highest-risk moment — anticipate an acute rise in PVR and have the inhaled vasodilator running before the clamp comes off</Bul>
+                </ul>
+                <Flag level="info" text="Pre-transplant: PAH therapy is used to reduce mPAP and PVR (Rec 12). TIPS and beta-blockers are avoided in POPH. Post-LT, all PAH therapy continues under PH-expert supervision, with echo and clinical evaluation within 3 months." />
+              </Collap>
+            )}
+
+            {naProt && (
+              <Collap title="Hyponatremia — Sodium Management Protocol" icon={Droplet} color="#7CC4FF" open={v.na < 130}>
+                <p className="text-[10px] text-[#56707F] mb-2">Verbeek TA, Bezinover D, et al. Hyponatremia and liver transplantation: a narrative review. J Cardiothorac Vasc Anesth 2022</p>
+                <div className="flex items-center justify-between bg-[#0E1A24] border border-[#1a2e40] rounded-md px-2.5 py-1.5 mb-2.5">
+                  <span className="text-[10px] uppercase tracking-wide text-[#8FA3B3]">Na⁺ {v.na} mmol/L</span>
+                  <span className="text-[12px] font-bold" style={{ color: naProt.tier.c }}>{naProt.tier.label} hyponatremia</span>
+                </div>
+
+                <div className="text-[10px] font-bold text-[#E6EEF2] uppercase tracking-wide mb-1">Correction limits</div>
+                <div className="space-y-1 mb-2.5">
+                  {[
+                    ["Preoperative", "4–8 mmol/L per day", "4–6 mmol/L per day if ODS risk is high; therapeutic limit ≤8 in any 24 h"],
+                    ["Intraoperative", "≤6 mmol/L per 24 h", "An intraoperative rise >10 mmol/L is associated with higher 90-day mortality and more neurologic complications"],
+                    ["Postoperative", "4–6 mmol/L per day", "Sodium normalises on its own — the task is to stop it rising too fast"],
+                  ].map(([phase, goal, note]) => (
+                    <div key={phase} className="bg-[#0E1A24] border border-[#1a2e40] rounded-md px-2.5 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-bold text-[#E6EEF2]">{phase}</span>
+                        <span className="text-[11px] font-mono font-bold text-[#7CD992]">{goal}</span>
+                      </div>
+                      <div className="text-[9.5px] text-[#8FA3B3] mt-1 leading-relaxed">{note}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {naProt.odsRisk.length > 0 && (
+                  <div className="mb-2.5">
+                    <Flag level={naProt.highRisk ? "high" : "med"}
+                      text={`ODS risk factors present: ${naProt.odsRisk.join(" · ")}. ${naProt.highRisk ? "Use the lower 4–6 mmol/L per day target." : ""}`} />
+                  </div>
+                )}
+
+                <div className="text-[10px] font-bold text-[#E6EEF2] uppercase tracking-wide mb-1">Intraoperative measures (consult nephrology)</div>
+                <ul className="space-y-1 mb-2.5">
+                  <Bul>Check Na⁺ frequently — q1–2 h, and around every large transfusion</Bul>
+                  <Bul>Limit sodium-containing IV fluids; use hypotonic carriers (0.45% saline, 5% dextrose) where volume allows</Bul>
+                  <Bul>Limit sodium-rich blood products — FFP runs ~172 mmol/L. Viscoelastic testing to limit transfusion; prefer coagulation factor concentrates</Bul>
+                  <Bul><strong className="text-[#7CC4FF]">Low-sodium CRRT</strong> — standard 140 mmol/L dialysate can drive an excessive rise; reduced-sodium dialysate/replacement fluid (e.g. 119–126 mmol/L) keeps Na⁺ stable</Bul>
+                  <Bul>Low-sodium veno-venous bypass priming solution if VVB is used</Bul>
+                  <Bul>THAM rather than sodium bicarbonate to treat acidosis — no sodium load</Bul>
+                  <Bul><strong className="text-[#FFC857]">If Na⁺ rises too fast</strong> — re-lower it: free water / hypotonic fluid ± desmopressin (DDAVP), and switch to low-sodium CRRT</Bul>
+                </ul>
+                <Flag level="med" text="Hypertonic saline (3–5%) has one indication here: severe symptomatic hyponatremia with life-threatening features — seizures, coma, or cardiorespiratory distress. Otherwise the risk runs the other way, toward overcorrection and osmotic demyelination." />
+              </Collap>
+            )}
 
             {f.hps && (
               <Collap title="HPS — Post-Reperfusion Hypoxemia" icon={Wind} color="#7CC4FF" open>
@@ -1433,6 +2258,7 @@ export default function App() {
                 <Bul>Large-bore peripheral access ×2 plus rapid infusion catheter</Bul>
                 <Bul>Central venous access — CVP trending, vasoactive delivery</Bul>
                 <Bul>TEE — RV/LV function, volume state, air embolism at reperfusion</Bul>
+                {ph?.active && <Bul><strong className="text-[#FF6B6B]">Pulmonary artery catheter</strong> — advised in pulmonary hypertension alongside TEE; trend mPAP, PVR and cardiac output through each phase (ILTS 2026)</Bul>}
                 <Bul>Serial TEG/ROTEM q30–60 min</Bul>
                 <Bul>Core temperature continuously — hypothermia worsens coagulopathy</Bul>
                 <Bul>Hourly urine output; lactate q60 min through anhepatic and reperfusion</Bul>
@@ -1446,6 +2272,7 @@ export default function App() {
                 <Bul><strong className="text-[#7CC4FF]">R2 defibrillation/pacing pads</strong> placed before induction — reperfusion arrhythmias and hyperkalemic arrest are real; pads allow immediate cardioversion/defibrillation without repositioning</Bul>
                 <Bul>Fluid warmer and rapid infuser primed; blood products checked and immediately available</Bul>
                 <Bul>Cell salvage available (avoid in HCC/infection per institutional policy)</Bul>
+                {ph?.active && <Bul><strong className="text-[#FF6B6B]">Inhaled nitric oxide / inhaled epoprostenol</strong> — confirm cylinder, circuit and delivery device are in the room and checked before induction; identify VA-ECMO capability for RV-failure rescue</Bul>}
                 <Bul>Upper-body forced-air blanket once the surgical field is established, if feasible</Bul>
               </ul>
             </Collap>
@@ -1577,12 +2404,11 @@ export default function App() {
               </div>
               <div className="mt-2.5 space-y-1.5">
                 {[
-                  ["Director of Liver Transplant Anesthesia", "Corewell Health William Beaumont Hospital"],
-                  ["Associate Professor of Anesthesiology", "Penn State Hershey Medical Center"],
-                ].map(([role, place]) => (
+                  "Director of Liver Transplant Anesthesia",
+                  "Associate Professor of Anesthesiology",
+                ].map((role) => (
                   <div key={role} className="bg-[#0E1A24] border border-[#1a2e40] rounded-md px-2.5 py-2">
                     <div className="text-[11px] font-semibold text-[#C9A8FF]">{role}</div>
-                    <div className="text-[10px] text-[#8FA3B3] mt-0.5">{place}</div>
                   </div>
                 ))}
               </div>
@@ -1619,6 +2445,24 @@ export default function App() {
                     <Bul><strong>Creatinine cap</strong> — MELD 3.0 caps at 3.0 mg/dL, MELD-Na at 4.0, so severe renal
                     failure scores differently</Bul>
                   </ul>
+                </Collap>
+
+                <Collap title="What are Case A and Case B, and what does Share do?" icon={Users} color="#4DD8C9">
+                  <p className="text-[11px] text-[#C9D6DE] leading-relaxed mb-2">
+                    Two independent working cases, so you can hold a second patient alongside the one in front of you without losing the first.
+                    Switch between them with the Case A / Case B control under the privacy banner; a dot marks a case that has data in it.
+                    Reset clears only the case you are on.
+                  </p>
+                  <p className="text-[11px] text-[#C9D6DE] leading-relaxed mb-2">
+                    Both live in memory for the current session only. Closing the app discards them — nothing is written to the device,
+                    so the privacy position is unchanged.
+                  </p>
+                  <p className="text-[11px] text-[#C9D6DE] leading-relaxed">
+                    <strong>Share</strong> assembles the computed output — scores, red flags, CRRT verdict, pulmonary hypertension and sodium plans,
+                    allocation context — as plain text you can copy, send, or print to PDF. It is de-identified by construction: the app never asks
+                    for a name, MRN, or date of birth, so none can appear in the brief. Paste it into the medical record; do not send it over
+                    unsecured channels.
+                  </p>
                 </Collap>
 
                 <Collap title="Is patient data stored or transmitted anywhere?" icon={Shield} color="#7CD992">
